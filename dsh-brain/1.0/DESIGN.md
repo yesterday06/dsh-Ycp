@@ -113,10 +113,10 @@ D:\OpenAI\全局记忆\  user-画像.md（baseline）/ 索引-项目.md / 环境
 
 ## 十二、交付与安装
 
-- **源码仓库**：`D:\OpenAI\工作区1\记忆大脑\`（git 根：`package.json`、`README.md`、`LICENSE`、`.gitignore`、`src/`、`tests/`、`cordis.patch.yml`）。
-- **开源发布副本**：`D:\OpenAI\记忆大脑Open\` —— 只放插件介绍与源码，不含内部提示词；每次构建后把 `src/`、`package.json`、`cordis.patch.yml`、`LICENSE`、`README.md` 同步过去。
+- **源码位置**：`D:\OpenAI\仓库\dsh-brain\1.0\`（仓库按「项目 → 版本」组织：`仓库\dsh-brain\1.0`、`1.1`…，每个版本目录都是完整插件）。
+- **开源发布**：同一目录即发布内容，不含内部提示词；再推到 GitHub `yesterday06/dsh-brain`。
 - **包名**：`dsh-brain`；**面板名**：记忆大脑。
-- **本地安装**：在 `~/.dsh/profiles/desktop` 里 `pnpm add link:D:\OpenAI\工作区1\记忆大脑`，把 `dsh-brain` 加进 `dsh.profile.bundles`，重启验证。
+- **本地安装**：在 `~/.dsh/profiles/desktop` 里 `pnpm add link:D:\OpenAI\仓库\dsh-brain\1.0`，把 `dsh-brain` 加进 `dsh.profile.bundles`，重启验证。
 - **卸载**：bundles 移除 → `pnpm remove dsh-brain` → 删目录。
 - **改 profile 前**：先复制 `package.json` 备份。
 - 源码要能直接 `git init` 后提交，不依赖本机绝对路径（路径走配置，不写死）。
