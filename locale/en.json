@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Memory Brain",
+    "description": "Four-layer memory with per-turn retrieval, automatic session handoff, and a sidebar memory panel; a drop-in replacement for sage-mem."
+  }
+}
