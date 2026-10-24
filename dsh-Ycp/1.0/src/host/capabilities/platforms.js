@@ -10,7 +10,9 @@
  *
  * 所有平台动作都归各自的手：B站/小黑盒/抖音 = browser，QQ = desktop。
  */
-import { appendLog } from '../kernel/paths.js'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { appendLog, homePaths, writeAtomic } from '../kernel/paths.js'
 
 const MAX_TEXT = 3000
 const WAIT_MS = 2500
@@ -222,6 +224,115 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     return { ok: true, url: target, chars: body.length, submitted: Boolean(value.submitted) }
   }
 
+  // ---- 自己的账号：接口、登录态、节奏 ----
+
+  function paceFile() {
+    return join(homePaths().root, '状态', '平台节奏.json')
+  }
+
+  function readPace() {
+    try {
+      return JSON.parse(readFileSync(paceFile(), 'utf8'))
+    } catch {
+      return {}
+    }
+  }
+
+  /**
+   * 人类节奏：两个写动作之间至少隔几秒，一天最多几十次。
+   * 这不是绕过风控，是别把号当成机器人使——真被拦了要停手求助。
+   */
+  function pace() {
+    const minGap = Number(process.env.YCP_ACTION_MIN_MS) || 8000
+    const dailyCap = Number(process.env.YCP_ACTION_DAILY_CAP) || 30
+    const now = Date.now()
+    const day = new Date().toISOString().slice(0, 10)
+    const state = readPace()
+    if (state.day !== day) {
+      state.day = day
+      state.count = 0
+    }
+    const gap = now - Number(state.last || 0)
+    if (gap < minGap) {
+      throw new Error(`动作太快了，等 ${Math.ceil((minGap - gap) / 1000)} 秒再来（别把号弄没了）`)
+    }
+    if (Number(state.count || 0) >= dailyCap) {
+      throw new Error(`今天已经做了 ${state.count} 次写动作，上限 ${dailyCap}；明天再来，或者主人改上限`)
+    }
+    state.last = now
+    state.count = Number(state.count || 0) + 1
+    try { writeAtomic(paceFile(), JSON.stringify(state, null, 2) + '\n') } catch { /* 记不下来也继续 */ }
+  }
+
+  async function ensureOnBili() {
+    const info = await browser.text()
+    if (!/bilibili\.com/i.test(info.url)) {
+      await browser.goto('https://www.bilibili.com')
+      await browser.wait(1200)
+    }
+  }
+
+  async function getCsrf() {
+    const { value } = await browser.evalJs(`(() => { const m = document.cookie.match(/(?:^|; )bili_jct=([^;]+)/); return m ? m[1] : '' })()`)
+    return String(value || '')
+  }
+
+  async function biliApi({ path, method = 'GET', body }) {
+    const target = String(path ?? '').trim()
+    if (!target.startsWith('/')) throw new Error('path 要以 / 开头，相对 B站接口')
+    const verb = String(method ?? 'GET').toUpperCase()
+    if (verb !== 'GET' && verb !== 'POST') throw new Error('只支持 GET / POST')
+    await ensureOnBili()
+    let payload = body && typeof body === 'object' ? { ...body } : {}
+    if (verb === 'POST') {
+      pace()
+      const csrf = await getCsrf()
+      if (csrf && !payload.csrf) payload.csrf = csrf
+    }
+    const script = `(async () => {
+      const res = await fetch(${JSON.stringify(target)}, {
+        method: ${JSON.stringify(verb)},
+        credentials: 'include',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: ${verb === 'POST' ? `new URLSearchParams(${JSON.stringify(payload)})` : 'undefined'}
+      })
+      const text = await res.text()
+      let json = null
+      try { json = JSON.parse(text) } catch { json = null }
+      return { status: res.status, ok: res.ok, json, text: json ? null : text.slice(0, 300) }
+    })()`
+    const { value } = await browser.evalJs(script)
+    const code = Number(value?.json?.code)
+    const blocked = [-352, -412, -509].includes(code)
+    const needLogin = code === -401
+    if (blocked) log('B站风控拦截', { path: target, code })
+    return {
+      status: value?.status ?? 0,
+      ok: Boolean(value?.ok),
+      code: Number.isFinite(code) ? code : null,
+      message: value?.json?.message ?? null,
+      data: value?.json?.data ?? null,
+      text: value?.text ?? null,
+      blocked,
+      needLogin,
+    }
+  }
+
+  async function biliMe() {
+    const result = await biliApi({ path: '/x/web-interface/nav' })
+    const data = result.data || {}
+    return {
+      isLogin: Boolean(data.isLogin),
+      mid: data.mid || 0,
+      uname: data.uname || '',
+      sign: data.sign || '',
+      face: data.face || '',
+      level: data.level_info?.current_level ?? null,
+      blocked: result.blocked,
+      needLogin: result.needLogin,
+    }
+  }
+
   return {
     biliSearch,
     biliHot,
@@ -232,6 +343,8 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     biliLike,
     biliFollow,
     biliComment,
+    biliMe,
+    biliApi,
   }
 }
 
@@ -289,6 +402,28 @@ export function installPlatformTools(registry, platforms) {
         required: ['url', 'text'],
       },
       run: async ({ url, text }) => platforms.biliComment({ url, text }),
+    },
+    {
+      id: 'bili.me',
+      description: '看自己的 B站登录态和资料：有没有登录、uid、昵称、签名、等级',
+      hand: 'actions',
+      schema: { type: 'object', properties: {}, required: [] },
+      run: async () => platforms.biliMe(),
+    },
+    {
+      id: 'bili.api',
+      description: '用登录态直接调 B站网页接口（相对路径，自动带 cookie 和 csrf）；改资料、发动态、回评论都靠它',
+      hand: 'actions',
+      schema: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: '例如 /x/web-interface/nav' },
+          method: { type: 'string', enum: ['GET', 'POST'] },
+          body: { type: 'object', description: 'POST 的表单字段' },
+        },
+        required: ['path'],
+      },
+      run: async ({ path, method, body }) => platforms.biliApi({ path, method, body }),
     },
     {
       id: 'qq.send',

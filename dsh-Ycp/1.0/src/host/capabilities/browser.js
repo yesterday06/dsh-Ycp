@@ -20,7 +20,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { isAbsolute, join, relative } from 'node:path'
 import { appendLog, homePaths } from '../kernel/paths.js'
 
 const IDLE_MS = 5 * 60 * 1000
@@ -505,7 +505,28 @@ export function createBrowserHand(options = {}) {
     return { closed: true }
   }
 
-  return { status, goto, text, click, type, screenshot, wait, close, start, evalJs, login }
+  /** 往页面的文件输入框里塞一个本地文件（换背景、传头像、发表情包都用它）。 */
+  async function upload(selector, filePath) {
+    const sel = String(selector ?? '').trim()
+    if (!sel) throw new Error('给个文件输入框的选择器')
+    const raw = String(filePath ?? '').trim()
+    if (!raw) throw new Error('给个文件路径')
+    const home = homePaths().root
+    const target = isAbsolute(raw) ? raw : join(home, raw)
+    const rel = relative(home, target)
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) throw new Error('只能传她自己家目录里的文件')
+    if (!existsSync(target)) throw new Error(`文件不存在：${raw}`)
+    const s = await start()
+    lastUsed = Date.now()
+    const { root } = await s.cdp.send('DOM.getDocument', { depth: -1 }, s.sessionId)
+    const { nodeId } = await s.cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector: sel }, s.sessionId)
+    if (!nodeId) throw new Error(`页面上没找到文件输入框：${sel}`)
+    await s.cdp.send('DOM.setFileInputFiles', { files: [target], nodeId }, s.sessionId)
+    remember('上传文件', `${sel} ← ${raw}`, true)
+    return { uploaded: true, selector: sel, file: raw }
+  }
+
+  return { status, goto, text, click, type, screenshot, wait, close, start, evalJs, login, upload }
 }
 
 function basename(file) {
@@ -585,6 +606,20 @@ export function installBrowserTools(registry, hand) {
         required: ['expression'],
       },
       run: async ({ expression }) => hand.evalJs(expression),
+    },
+    {
+      id: 'browser.upload',
+      description: '把家目录里的一个文件塞进页面的文件输入框（换背景、传头像、发表情包）',
+      hand: 'actions',
+      schema: {
+        type: 'object',
+        properties: {
+          selector: { type: 'string', description: 'file input 的 CSS 选择器' },
+          path: { type: 'string', description: '她家目录里的文件路径' },
+        },
+        required: ['selector', 'path'],
+      },
+      run: async ({ selector, path }) => hand.upload(selector, path),
     },
   ]
 
