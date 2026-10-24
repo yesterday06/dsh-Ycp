@@ -13,3 +13,6 @@ tests/edge-*/
 tests/edge-*.html
 tests/*.png
 tests/long-prompt.txt
+
+# 开源发布暂存区（只在本机）
+上传/
