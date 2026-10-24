@@ -333,6 +333,59 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     }
   }
 
+  const SITES = {
+    bilibili: 'https://www.bilibili.com',
+    douyin: 'https://www.douyin.com',
+    xiaoheihe: 'https://www.xiaoheihe.cn',
+    qzone: 'https://user.qzone.qq.com',
+  }
+
+  /** 通用：在某个站点的登录态里打它自己的接口（同源 fetch，cookie 自动带）。 */
+  async function siteApi({ site, path, method = 'GET', body }) {
+    const name = String(site ?? '').trim().toLowerCase()
+    const origin = SITES[name]
+    if (!origin) throw new Error(`认识的站点只有：${Object.keys(SITES).join(' / ')}`)
+    const target = String(path ?? '').trim()
+    if (!target.startsWith('/')) throw new Error('path 要以 / 开头')
+    const verb = String(method ?? 'GET').toUpperCase()
+    if (verb !== 'GET' && verb !== 'POST') throw new Error('只支持 GET / POST')
+    const info = await browser.text()
+    if (!info.url.includes(new URL(origin).hostname)) {
+      await browser.goto(origin)
+      await browser.wait(1500)
+    }
+    let payload = body && typeof body === 'object' ? { ...body } : {}
+    if (verb === 'POST') {
+      pace()
+      if (name === 'bilibili') {
+        const csrf = await getCsrf()
+        if (csrf && !payload.csrf) payload.csrf = csrf
+      }
+    }
+    const script = `(async () => {
+      const res = await fetch(${JSON.stringify(target)}, {
+        method: ${JSON.stringify(verb)},
+        credentials: 'include',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        body: ${verb === 'POST' ? `new URLSearchParams(${JSON.stringify(payload)})` : 'undefined'}
+      })
+      const text = await res.text()
+      let json = null
+      try { json = JSON.parse(text) } catch { json = null }
+      return { status: res.status, ok: res.ok, json, text: json ? null : text.slice(0, 300) }
+    })()`
+    const { value } = await browser.evalJs(script)
+    const blocked = Boolean(value?.json && [(-352), (-412), (-509)].includes(Number(value.json.code)))
+    return {
+      site: name,
+      status: value?.status ?? 0,
+      ok: Boolean(value?.ok),
+      json: value?.json ?? null,
+      text: value?.text ?? null,
+      blocked,
+    }
+  }
+
   return {
     biliSearch,
     biliHot,
@@ -345,6 +398,7 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     biliComment,
     biliMe,
     biliApi,
+    siteApi,
   }
 }
 
@@ -424,6 +478,22 @@ export function installPlatformTools(registry, platforms) {
         required: ['path'],
       },
       run: async ({ path, method, body }) => platforms.biliApi({ path, method, body }),
+    },
+    {
+      id: 'site.api',
+      description: '在 B站/抖音/小黑盒/QQ空间的登录态里调它自己的接口（同源、自动带 cookie；B站自动带 csrf）',
+      hand: 'actions',
+      schema: {
+        type: 'object',
+        properties: {
+          site: { type: 'string', enum: ['bilibili', 'douyin', 'xiaoheihe', 'qzone'] },
+          path: { type: 'string', description: '以 / 开头的接口路径' },
+          method: { type: 'string', enum: ['GET', 'POST'] },
+          body: { type: 'object' },
+        },
+        required: ['site', 'path'],
+      },
+      run: async ({ site, path, method, body }) => platforms.siteApi({ site, path, method, body }),
     },
     {
       id: 'qq.send',

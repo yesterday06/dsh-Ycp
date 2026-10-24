@@ -7,8 +7,8 @@
   html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; user-select: none; }
   body { width: 200px; height: 200px; position: relative; cursor: grab; }
   body.dragging { cursor: grabbing; }
-  .stage { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; box-sizing: border-box; }
-  .fish { width: 186px; height: 158px; transform-origin: 50% 70%; animation: bob 2.6s ease-in-out infinite; filter: drop-shadow(0 6px 10px rgba(10, 40, 70, .25)); }
+  .stage { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; }
+  .fish { width: 200px; height: 200px; transform-origin: 50% 72%; animation: bob 2.8s ease-in-out infinite; filter: drop-shadow(0 8px 12px rgba(10, 40, 70, .28)); }
   .fish.pop { animation: pop .45s ease-out; }
   body.swim .fish { animation: swim 3.4s ease-in-out infinite; }
   body.nap .fish { animation: nap 4.5s ease-in-out infinite; opacity: .88; }
@@ -33,29 +33,8 @@
   <div class="zzz">z z</div>
   <div class="bubble" id="bubble">咕噜～</div>
   <div class="stage">
-    <svg class="fish" id="fish" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg" aria-label="大肥鱼">
-      <defs>
-        <linearGradient id="body" x1="40" y1="40" x2="150" y2="140" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stop-color="#7CD3F7" />
-          <stop offset="1" stop-color="#2A8BCB" />
-        </linearGradient>
-      </defs>
-      <path d="M30 90 C18 78 8 66 4 52 C2 72 6 82 12 90 C6 98 2 110 4 130 C10 112 20 100 30 90 Z" fill="#17608F" />
-      <path d="M30 90 C30 55 62 38 96 38 C132 38 160 58 164 88 C168 120 138 142 100 142 C62 142 30 122 30 90 Z" fill="url(#body)" />
-      <path d="M52 108 C64 130 88 138 108 132 C128 126 146 112 156 96 C150 122 128 138 100 138 C76 138 60 126 52 108 Z" fill="#D9F3FF" opacity=".75" />
-      <path d="M78 40 C86 24 104 20 116 30 C104 30 90 34 84 44 Z" fill="#17608F" />
-      <path d="M92 96 C102 88 116 88 122 96 C114 108 100 108 92 102 Z" fill="#17608F" opacity=".9" />
-      <circle cx="146" cy="78" r="13" fill="#FFFFFF" />
-      <circle cx="149" cy="80" r="6.4" fill="#12303F" />
-      <circle cx="151.4" cy="76.6" r="2.2" fill="#FFFFFF" />
-      <ellipse cx="132" cy="97" rx="9" ry="4.6" fill="#F2A6C0" opacity=".55" />
-      <path d="M158 92 C164 93 165 97 161 100" fill="none" stroke="#12303F" stroke-width="2.2" stroke-linecap="round" />
-      <circle cx="178" cy="46" r="4.4" fill="#A8E2FA" opacity=".9" />
-      <circle cx="186" cy="32" r="3" fill="#A8E2FA" opacity=".7" />
-      <circle cx="180" cy="20" r="2" fill="#A8E2FA" opacity=".55" />
-    </svg>
-  </div>
-<script>
+    <img class="fish" id="fish" src="../character/whale-girl.svg" alt="大肥鱼" draggable="false" />
+  </div><script>
   const body = document.body
   const bubble = document.getElementById('bubble')
   const fish = document.getElementById('fish')

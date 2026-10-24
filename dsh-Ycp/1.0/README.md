@@ -218,6 +218,7 @@ Ycp\
 - 自己的账号：
   - `bili.me`：看登录态、uid、昵称、签名、等级。
   - `bili.api({path, method, body})`：用登录态直接调 B站网页接口，自动带 cookie 与 csrf——改资料、换签名、发动态、回评论都走它。
+  - `site.api({site, path, method, body})`：同一套能力给抖音、小黑盒、QQ空间（`douyin / xiaoheihe / qzone`）——在对应站点的登录态里同源 fetch。
   - `browser.upload({selector, path})`：把家目录里的图片塞进文件输入框——换背景、传头像、发表情包。
   - 平台改版导致接口/选择器失效时，她可以先用 `browser.eval` 看页面自己改，试三次不行再求助。
 - **反风控只做"像人"的部分，不做绕过**：两个写动作至少隔 8 秒、一天最多 30 次写动作（`YCP_ACTION_MIN_MS` / `YCP_ACTION_DAILY_CAP` 可调）；遇到 `-352/-412/-509` 风控码立即停手并报错，不换 IP、不破验证码。
@@ -284,6 +285,12 @@ Ycp\
 ```
 
 **回滚**：还原 `desktop.backup-<时间戳>` 整个目录 → 重启。
+
+## 形象与界面
+
+她的形象是**手画的鲸鱼娘**（蓝发、鲸尾呆毛、水手卫衣），一份 SVG 三处用：`icon.svg`、面板头部、桌宠窗口。换形象只改 `assets/character/whale-girl.svg`；宿主用 `/api/dsh-Ycp/character.svg` 把这张图发给面板。
+
+面板：头部有她的立绘和状态胶囊；分区块（她的今天 / 人设 / 记忆 / 作息 / 主动 / 手 / 音效 / 声音 / 外观 / 设置）圆角卡片、悬停浮起、左侧渐变竖条；正在说话时有「•••」动画，回复带相对时间。
 
 ## 目录
 

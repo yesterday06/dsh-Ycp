@@ -13,6 +13,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { appendLog, homePaths, homeSummary, loadPersona, loadSettings, savePersona, saveSettings, DEFAULT_PERSONA } from './kernel/paths.js'
 import { DEFAULT_SAMPLE } from './appearance/voice.js'
 import { soundDir, soundStatus } from './appearance/sound.js'
@@ -535,6 +536,24 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           const url = new URL(req.url || '/', 'http://x')
           const data = await balance.status({ force: url.searchParams.get('refresh') === '1' })
           sendJson(res, 200, data)
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-Ycp/character.svg',
+        handler: handlerFor(async (req, res) => {
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            return sendJson(res, 405, { ok: false, error: 'GET only' })
+          }
+          const file = fileURLToPath(new URL('../../assets/character/whale-girl.svg', import.meta.url))
+          if (!existsSync(file)) return sendJson(res, 404, { ok: false, error: '形象文件不见了' })
+          const data = readFileSync(file)
+          res.writeHead(200, {
+            'content-type': 'image/svg+xml; charset=utf-8',
+            'content-length': data.length,
+            'cache-control': 'no-cache',
+          })
+          res.end(req.method === 'HEAD' ? undefined : data)
         }),
       },
       {

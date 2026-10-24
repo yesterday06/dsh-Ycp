@@ -28,7 +28,10 @@ window.__ModuleLoader__.load({
       .ycp-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
       .ycp-status { display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin:16px 0 14px; padding:10px 14px; border:1px solid var(--dsw-alias-border-l1); border-radius:10px; background:var(--dsw-alias-bg-layer-1); font-size:12px; color:var(--dsw-alias-label-secondary); }
       .ycp-status b { color:var(--dsw-alias-label-primary); font-weight:600; }
-      .ycp-section { border:1px solid var(--dsw-alias-border-l1); border-radius:12px; background:var(--dsw-alias-bg-layer-1); padding:14px 16px; margin-bottom:12px; }
+      .ycp-section { border:1px solid var(--dsw-alias-border-l1); border-radius:16px; background:var(--dsw-alias-bg-layer-1); padding:16px 18px; margin-bottom:12px; box-shadow:0 6px 18px rgba(22,86,128,.05); transition:border-color .2s, box-shadow .2s; }
+      .ycp-section:hover { border-color:rgba(96,196,235,.45); box-shadow:0 8px 22px rgba(22,86,128,.09); }
+      .ycp-section-title { font-weight:650; display:flex; align-items:center; gap:8px; }
+      .ycp-section-title::before { content:''; width:3px; height:13px; border-radius:2px; background:linear-gradient(#6fd2f3,#2a7fb6); }
       .ycp-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:9px; }
       .ycp-section-title { font-size:12px; font-weight:650; letter-spacing:.4px; color:var(--dsw-alias-label-secondary); text-transform:uppercase; }
       .ycp-count { font-size:11px; color:var(--dsw-alias-label-secondary); }
@@ -107,7 +110,9 @@ window.__ModuleLoader__.load({
       .ycp-meter { height:6px; border-radius:3px; background:var(--dsw-alias-border-l1); overflow:hidden; margin-top:6px; }
       .ycp-meter i { display:block; height:100%; border-radius:3px; transition:width .5s ease, background .3s; }
       .ycp-foot { color:var(--dsw-alias-label-secondary); font-size:11px; margin-top:14px; }
-      .ycp-hero { display:flex; align-items:center; gap:18px; margin:18px 0 14px; padding:14px 16px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-layer-1); }
+      .ycp-hero { display:flex; align-items:center; gap:18px; margin:18px 0 14px; padding:14px 18px; border:1px solid var(--dsw-alias-border-l1); border-radius:18px; background:linear-gradient(135deg, rgba(96,196,235,.16), rgba(255,255,255,0) 62%), var(--dsw-alias-bg-layer-1); box-shadow:0 10px 26px rgba(22,86,128,.08); }
+      .ycp-portrait { width:112px; height:112px; flex-shrink:0; display:block; border-radius:22px; filter:drop-shadow(0 10px 16px rgba(21,84,124,.22)); animation:ycp-float 4.5s ease-in-out infinite; }
+      @keyframes ycp-float { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-5px) } }
       .ycp-quote { font-size:14px; line-height:1.7; }
       .ycp-quote b { font-weight:600; }
       .ycp-note { color:var(--dsw-alias-label-secondary); font-size:12px; margin-top:4px; }
@@ -181,25 +186,14 @@ window.__ModuleLoader__.load({
       )
     }
 
-    /** 面板里的大鱼：和 icon.svg / 桌宠同一套形象。 */
-    function BigFish() {
-      return h('svg', {
-        viewBox: '0 0 200 170', width: 112, height: 96, 'aria-hidden': true,
-        style: { flexShrink: 0, display: 'block' },
-      },
-        h('path', { d: 'M30 90 C18 78 8 66 4 52 C2 72 6 82 12 90 C6 98 2 110 4 130 C10 112 20 100 30 90 Z', fill: '#17608F' }),
-        h('path', { d: 'M30 90 C30 55 62 38 96 38 C132 38 160 58 164 88 C168 120 138 142 100 142 C62 142 30 122 30 90 Z', fill: '#2A8BCB' }),
-        h('path', { d: 'M52 108 C64 130 88 138 108 132 C128 126 146 112 156 96 C150 122 128 138 100 138 C76 138 60 126 52 108 Z', fill: '#D9F3FF', opacity: 0.75 }),
-        h('path', { d: 'M78 40 C86 24 104 20 116 30 C104 30 90 34 84 44 Z', fill: '#17608F' }),
-        h('path', { d: 'M92 96 C102 88 116 88 122 96 C114 108 100 108 92 102 Z', fill: '#17608F', opacity: 0.9 }),
-        h('circle', { cx: 146, cy: 78, r: 13, fill: '#FFFFFF' }),
-        h('circle', { cx: 149, cy: 80, r: 6.4, fill: '#12303F' }),
-        h('circle', { cx: 151.4, cy: 76.6, r: 2.2, fill: '#FFFFFF' }),
-        h('ellipse', { cx: 132, cy: 97, rx: 9, ry: 4.6, fill: '#F2A6C0', opacity: 0.55 }),
-        h('path', { d: 'M158 92 C164 93 165 97 161 100', fill: 'none', stroke: '#12303F', strokeWidth: 2.2, strokeLinecap: 'round' }),
-        h('circle', { cx: 178, cy: 46, r: 4.4, fill: '#A8E2FA', opacity: 0.9 }),
-        h('circle', { cx: 186, cy: 32, r: 3, fill: '#A8E2FA', opacity: 0.7 }),
-      )
+    /** 面板里的鲸鱼娘：和 icon.svg / 桌宠同一张图，宿主从 /character.svg 发。 */
+    function BigFish(props = {}) {
+      return h('img', {
+        className: props.className || 'ycp-portrait',
+        src: '/api/dsh-Ycp/character.svg',
+        alt: '大肥鱼',
+        draggable: false,
+      })
     }
 
     /** 一条状态条：体力 / 心情 / 饿。 */
@@ -906,7 +900,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ycp-head' },
             h('div', null,
               h('div', { className: 'ycp-title' }, state ? state.name : '大肥鱼'),
-              h('div', { className: 'ycp-sub' }, `v${VERSION} · P17 音效与余额`),
+              h('div', { className: 'ycp-sub' }, `v${VERSION} · 鲸鱼娘`),
             ),
             pill,
           ),
@@ -914,7 +908,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ycp-hero' },
             h(BigFish),
             h('div', null,
-              h('div', { className: 'ycp-quote' }, '一条赖在主人电脑里不肯走的', h('b', null, '蓝胖子'), '。'),
+              h('div', { className: 'ycp-quote' }, '一条赖在主人电脑里不肯走的', h('b', null, '鲸鱼娘'), '。'),
               h('div', { className: 'ycp-note' }, '下面的人设是她全部的性格来源；改完保存，下一句话立刻换嘴。'),
             ),
           ),
