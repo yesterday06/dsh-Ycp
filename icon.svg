@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="大肥鱼 鲸鱼娘">
+  <defs>
+    <linearGradient id="skin" x1="60" y1="60" x2="140" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF9F3"/>
+      <stop offset="1" stop-color="#FFDCC9"/>
+    </linearGradient>
+    <linearGradient id="hair" x1="50" y1="40" x2="150" y2="150" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#79D2EE"/>
+      <stop offset=".45" stop-color="#55B7DE"/>
+      <stop offset="1" stop-color="#3A8FC2"/>
+    </linearGradient>
+    <linearGradient id="iris" x1="0" y1="94" x2="0" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0B2E45"/>
+      <stop offset=".5" stop-color="#2E92C8"/>
+      <stop offset="1" stop-color="#C6F1FF"/>
+    </linearGradient>
+    <linearGradient id="hoodie" x1="40" y1="150" x2="160" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#65C6EC"/>
+      <stop offset="1" stop-color="#2579B4"/>
+    </linearGradient>
+    <linearGradient id="fluke" x1="80" y1="20" x2="120" y2="50" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8ADFF9"/>
+      <stop offset="1" stop-color="#1E6AA3"/>
+    </linearGradient>
+    <radialGradient id="cheek" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FF9AB2" stop-opacity=".8"/>
+      <stop offset="1" stop-color="#FF9AB2" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bubble" cx=".35" cy=".3" r=".75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity=".95"/>
+      <stop offset=".6" stop-color="#CDF1FF" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#8FD8F6" stop-opacity=".15"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 气泡 -->
+  <circle cx="26" cy="72" r="5" fill="url(#bubble)"/>
+  <circle cx="36" cy="54" r="3" fill="url(#bubble)"/>
+  <circle cx="176" cy="96" r="4" fill="url(#bubble)"/>
+  <circle cx="168" cy="74" r="2.6" fill="url(#bubble)"/>
+
+  <!-- 卫衣身体 -->
+  <path d="M56 168 C56 154 74 146 100 146 C126 146 144 154 144 168 L152 200 L48 200 Z" fill="url(#hoodie)"/>
+  <path d="M56 168 C56 154 74 146 100 146 C126 146 144 154 144 168" fill="none" stroke="#9BE3FA" stroke-width="2.4" opacity=".6"/>
+  <path d="M100 146 L100 200" stroke="#3C97C8" stroke-width="1.2" opacity=".35"/>
+
+  <!-- 脖子 -->
+  <path d="M91 132 L109 132 L109 152 C109 158 91 158 91 152 Z" fill="#F6C9B6"/>
+
+  <!-- 后发 -->
+  <path d="M46 112 C44 64 68 36 100 36 C132 36 156 64 154 112 C154 132 148 144 142 150 C146 128 144 112 140 102 C138 128 128 140 118 146 C124 128 122 114 118 106 C112 128 100 140 88 144 C94 126 92 112 88 104 C82 124 70 136 60 142 C64 126 62 116 58 106 C54 118 50 130 52 150 C48 142 46 128 46 112 Z" fill="url(#hair)"/>
+
+  <!-- 脸 -->
+  <ellipse cx="100" cy="104" rx="43" ry="42" fill="url(#skin)"/>
+  <path d="M62 112 C66 134 82 146 100 146 C118 146 134 134 138 112 C130 132 116 140 100 140 C84 140 70 132 62 112 Z" fill="#F0BFAE" opacity=".3"/>
+
+  <!-- 刘海 -->
+  <path d="M57 104 C55 68 76 46 100 46 C124 46 145 68 143 104 L136 94 L128 104 L120 92 L112 103 L104 91 L96 103 L88 91 L80 103 L72 92 L64 104 Z" fill="url(#hair)"/>
+  <path d="M58 108 C54 126 56 140 62 150 C58 138 58 124 59 112 Z" fill="url(#hair)"/>
+  <path d="M142 108 C146 126 144 140 138 150 C142 138 142 124 141 112 Z" fill="url(#hair)"/>
+
+  <!-- 鲸尾呆毛 -->
+  <path d="M96 42 C88 24 74 14 58 16 C68 30 74 42 76 56 C82 48 89 44 96 42 Z" fill="url(#fluke)"/>
+  <path d="M104 42 C112 24 126 14 142 16 C132 30 126 42 124 56 C118 48 111 44 104 42 Z" fill="url(#fluke)"/>
+  <path d="M96 42 C98 32 99 24 100 16 C101 24 102 32 104 42 Z" fill="#2A7FB6"/>
+
+  <!-- 眉毛 -->
+  <path d="M71 93 Q81 89 90 92" fill="none" stroke="#6CA8C2" stroke-width="1.8" stroke-linecap="round" opacity=".6"/>
+  <path d="M110 92 Q119 89 129 93" fill="none" stroke="#6CA8C2" stroke-width="1.8" stroke-linecap="round" opacity=".6"/>
+
+  <!-- 眼睛 -->
+  <ellipse cx="81" cy="110" rx="12" ry="15" fill="#12384F"/>
+  <ellipse cx="119" cy="110" rx="12" ry="15" fill="#12384F"/>
+  <ellipse cx="81" cy="112" rx="9.6" ry="11.8" fill="url(#iris)"/>
+  <ellipse cx="119" cy="112" rx="9.6" ry="11.8" fill="url(#iris)"/>
+  <ellipse cx="81" cy="118" rx="6" ry="5" fill="#E8FBFF" opacity=".55"/>
+  <ellipse cx="119" cy="118" rx="6" ry="5" fill="#E8FBFF" opacity=".55"/>
+  <circle cx="77.2" cy="106" r="3.6" fill="#FFFFFF"/>
+  <circle cx="115.2" cy="106" r="3.6" fill="#FFFFFF"/>
+  <circle cx="84.6" cy="116" r="1.7" fill="#FFFFFF" opacity=".9"/>
+  <circle cx="122.6" cy="116" r="1.7" fill="#FFFFFF" opacity=".9"/>
+  <path d="M68 99 Q81 91 94 99" fill="none" stroke="#0C2A3E" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M106 99 Q119 91 132 99" fill="none" stroke="#0C2A3E" stroke-width="3.2" stroke-linecap="round"/>
+
+  <!-- 腮红 -->
+  <ellipse cx="63" cy="127" rx="10" ry="6.4" fill="url(#cheek)"/>
+  <ellipse cx="137" cy="127" rx="10" ry="6.4" fill="url(#cheek)"/>
+
+  <!-- 嘴 -->
+  <path d="M93 131 Q100 138 107 131" fill="none" stroke="#B85C6E" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M96 136 Q100 139 104 136" fill="none" stroke="#EBA3B1" stroke-width="1.4" stroke-linecap="round" opacity=".85"/>
+  <path d="M99 124 Q101 126 100 128" fill="none" stroke="#E0A08F" stroke-width="1.3" stroke-linecap="round" opacity=".5"/>
+
+  <!-- 卫衣领口 + 抽绳 + 鲸尾徽章 -->
+  <path d="M76 152 C84 160 93 163 100 163 C107 163 116 160 124 152 C126 158 124 164 118 167 C110 171 90 171 82 167 C76 164 74 158 76 152 Z" fill="#EAFBFF"/>
+  <path d="M92 166 C90 172 90 178 91 183" fill="none" stroke="#D9F6FF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M108 166 C110 172 110 178 109 183" fill="none" stroke="#D9F6FF" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="91" cy="184" r="1.8" fill="#EAFBFF"/>
+  <circle cx="109" cy="184" r="1.8" fill="#EAFBFF"/>
+  <path d="M89 176 C95 168 100 168 100 176 C100 168 105 168 111 176 C107 182 93 182 89 176 Z" fill="#EAFBFF" opacity=".95"/>
+
+  <!-- 眼睛细节 -->
+  <path d="M74 108 Q81 103.4 88 108" fill="none" stroke="#E8FBFF" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
+  <path d="M112 108 Q119 103.4 126 108" fill="none" stroke="#E8FBFF" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
+  <circle cx="84.6" cy="122.6" r="1.4" fill="#FFFFFF" opacity=".85"/>
+  <circle cx="122.6" cy="122.6" r="1.4" fill="#FFFFFF" opacity=".85"/>
+  <path d="M68 104 Q64 100 60 102" fill="none" stroke="#0C2A3E" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M132 104 Q136 100 140 102" fill="none" stroke="#0C2A3E" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- 小鼻子与虎牙 -->
+  <path d="M99 123.4 Q101 125.6 99.4 127" fill="none" stroke="#E0A08F" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>
+  <path d="M101.4 135.6 L102.6 139 L104 135.8 Z" fill="#FFFFFF"/>
+  <!-- 发丝高光 -->
+  <path d="M70 94 C74 84 82 78 90 80" fill="none" stroke="#E9FBFF" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+  <path d="M112 80 C120 78 128 84 132 92" fill="none" stroke="#E9FBFF" stroke-width="1.6" stroke-linecap="round" opacity=".28"/>
+  <!-- 兜帽边缘高光与斑点 -->
+  <path d="M47 116 C51 148 73 167 100 167" fill="none" stroke="#DFF7FF" stroke-width="1.8" stroke-linecap="round" opacity=".55"/>
+  <circle cx="62" cy="72" r="3.2" fill="#DFF7FF" opacity=".45"/>
+  <circle cx="72" cy="60" r="2" fill="#DFF7FF" opacity=".35"/>
+  <circle cx="140" cy="86" r="2.6" fill="#DFF7FF" opacity=".35"/>
+  <circle cx="132" cy="66" r="1.8" fill="#DFF7FF" opacity=".3"/>
+  <path d="M84 143 C90 147 110 147 116 143" fill="none" stroke="#F2C4B2" stroke-width="2" stroke-linecap="round" opacity=".45"/>
+</svg>

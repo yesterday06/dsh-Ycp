@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>大肥鱼菜单</title>
+<style>
+  @font-face { font-family:'RuanTang'; src:url('../fonts/ruantang.ttf') format('truetype'); }
+  html,body { margin:0; padding:0; background:transparent; overflow:hidden; user-select:none; font-family:'RuanTang','Microsoft YaHei',sans-serif; }
+  .card { margin:6px; background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(232,249,255,.99)); border:2px solid #8fd9f4; border-radius:18px; box-shadow:0 18px 40px rgba(20,70,110,.28), inset 0 1px 0 #fff; padding:8px; }
+  .head { display:flex; align-items:center; gap:7px; padding:2px 6px 7px; color:#22475f; font-size:14px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:#5fd0a0; box-shadow:0 0 0 3px rgba(95,208,160,.2); }
+  .item { display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:11px; font-size:14px; color:#22475f; cursor:pointer; }
+  .item:hover { background:#dff4ff; }
+  .sub { font-size:11px; color:#7aa6bf; padding:7px 9px 3px; letter-spacing:1px; }
+  .row { display:flex; gap:5px; padding:2px 8px; }
+  .chip { flex:1; text-align:center; border:1.5px solid #bfe6f7; border-radius:9px; padding:3px 0; font-size:12px; color:#2a7fb6; cursor:pointer; }
+  .chip.on { background:#2a7fb6; border-color:#2a7fb6; color:#fff; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:2px 6px; }
+  .grid span { font-size:12px; padding:5px 4px; border-radius:9px; background:#f2fbff; text-align:center; color:#2a7fb6; cursor:pointer; }
+  .grid span:hover { background:#dcf3ff; }
+  .sep { height:1px; background:#dff0f8; margin:6px 8px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="head"><span class="dot"></span><span id="petName">大肥鱼</span></div>
+    <div class="item" data-act="chat">💬 跟她说话</div>
+    <div class="item" data-act="settings">⚙ 设置</div>
+    <div class="item" data-act="ledger">💰 记账</div>
+    <div class="item" data-act="pin" id="pin">📌 固定</div>
+    <div class="item" data-act="gravity" id="gravity">🌍 重力：开</div>
+    <div class="sub">大小</div>
+    <div class="row" id="sizes">
+      <div class="chip" data-size="0.7">小</div>
+      <div class="chip" data-size="1">中</div>
+      <div class="chip" data-size="1.35">大</div>
+      <div class="chip" data-size="1.7">特大</div>
+    </div>
+    <div class="sep"></div>
+    <div class="sub">动画</div>
+    <div class="grid">
+      <span data-cat="idle">待机</span><span data-cat="click">开心</span>
+      <span data-cat="eat">吃一口</span><span data-cat="play">玩耍</span>
+      <span data-cat="work">干活</span><span data-cat="sleep">打盹</span>
+      <span data-cat="balance">数钱</span><span data-cat="random">随机</span>
+    </div>
+    <div class="sep"></div>
+    <div class="item" data-act="open">🪟 打开面板</div>
+    <div class="item" data-act="close">✕ 收起</div>
+  </div>
+<script>
+  const api = window.ycpPet || { menuPick(){}, onMenuState(){} }
+  if (api.config && api.config.name) { const el = document.getElementById('petName'); if (el) el.textContent = api.config.name }
+  const send = (act, value) => { if (typeof api.menuPick === 'function') api.menuPick(act, value) }
+  document.getElementById('pin').addEventListener('click', () => send('pin'))
+  document.querySelectorAll('[data-act]:not(#pin):not(#gravity)').forEach((element) => {
+    element.addEventListener('click', () => send(element.dataset.act))
+  })
+  document.getElementById('gravity').addEventListener('click', () => send('gravity'))
+  document.querySelectorAll('[data-size]').forEach((element) => {
+    element.addEventListener('click', () => send('size', Number(element.dataset.size)))
+  })
+  document.querySelectorAll('[data-cat]').forEach((element) => {
+    element.addEventListener('click', () => send('anim', element.dataset.cat))
+  })
+  if (api.onMenuState) api.onMenuState((state) => {
+    document.getElementById('pin').textContent = state.pinned ? '📌 取消固定' : '📌 固定（点不到她）'
+    document.getElementById('gravity').textContent = state.gravity ? '🌍 重力：开（松手会掉）' : '🌍 重力：关（拖哪停哪）'
+    document.querySelectorAll('[data-size]').forEach((element) => {
+      element.classList.toggle('on', Math.abs(Number(element.dataset.size) - Number(state.scale)) < 0.01)
+    })
+  })
+</script>
+</body>
+</html>

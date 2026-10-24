@@ -1,0 +1,56 @@
+{
+  "name": "dsh-Ycp",
+  "version": "0.1.0",
+  "description": "大肥鱼：一个会用电脑、有状态、会记账、能自己上网做事的 DSH 桌宠个体。",
+  "type": "module",
+  "main": "src/host/index.js",
+  "icon": "assets/character/icon.png",
+  "exports": {
+    ".": "./src/host/index.js",
+    "./client": "./src/client/index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "assets",
+    "locale",
+    "icon.svg",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "更新日志.md",
+    "安装说明.md",
+    "DESIGN.md",
+    "GUIDE.md"
+  ],
+  "keywords": [
+    "deepseek-harness",
+    "dsh-plugin",
+    "agent",
+    "pet",
+    "browser"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": ">=0.2.1-rc.2"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    },
+    "compatibility": {
+      "dsh": ">=0.2.1-rc.2",
+      "dshReleases": {
+        "0.2.1-rc.2": "compatible",
+        "0.2.1-rc.3": "compatible"
+      }
+    }
+  }
+}

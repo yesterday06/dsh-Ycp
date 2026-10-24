@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>跟大肥鱼说话</title>
+<style>
+  @font-face { font-family:'RuanTang'; src:url('../fonts/ruantang.ttf') format('truetype'); }
+  html,body { margin:0; padding:0; height:100%; background:transparent; overflow:hidden; user-select:none; font-family:'RuanTang','Microsoft YaHei',sans-serif; }
+  .card { margin:6px; height:calc(100% - 12px); display:flex; flex-direction:column; background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(235,250,255,.99)); border:2px solid #8fd9f4; border-radius:16px; box-shadow:0 14px 30px rgba(20,70,110,.24); overflow:hidden; }
+  .bar { -webkit-app-region:drag; display:flex; align-items:center; justify-content:space-between; padding:4px 9px 2px; color:#2a7fb6; font-size:12px; cursor:grab; }
+  .bar .actions { display:flex; align-items:center; gap:2px; }
+  .bar button { -webkit-app-region:no-drag; border:0; background:transparent; color:#7aa6bf; font-size:13px; cursor:pointer; padding:0 3px; }
+  .log { flex:1; min-height:0; display:none; overflow-y:auto; overscroll-behavior:contain; padding:4px 10px 6px; flex-direction:column; gap:7px; }
+  body.expanded .log { display:flex; }
+  .msg { max-width:84%; padding:7px 10px; border-radius:13px; font-size:13px; line-height:1.45; white-space:pre-wrap; word-break:break-word; }
+  .me { align-self:flex-end; background:#2a7fb6; color:#fff; border-bottom-right-radius:4px; }
+  .her { align-self:flex-start; background:#fff; color:#22475f; border:1.5px solid #bfe6f7; border-bottom-left-radius:4px; }
+  .her .meme { display:block; max-width:150px; max-height:100px; object-fit:contain; margin:5px 0 2px; border-radius:9px; }
+  .status { padding:0 11px 2px; font-size:11px; color:#7aa6bf; min-height:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row { display:flex; gap:6px; padding:0 8px 7px; -webkit-app-region:no-drag; }
+  input { flex:1; min-width:0; border:2px solid #bfe6f7; border-radius:11px; padding:5px 9px; font-family:inherit; font-size:13px; outline:none; background:#f8fdff; color:#1b3c53; }
+  button.toggle { border:1.5px solid #bfe6f7; border-radius:11px; background:#f8fdff; color:#2a7fb6; font-size:13px; width:34px; cursor:pointer; }\n  button.toggle { border:1.5px solid #bfe6f7; border-radius:11px; background:#f8fdff; color:#2a7fb6; font-size:13px; width:34px; cursor:pointer; }
+  button.send { border:0; border-radius:11px; padding:0 13px; background:linear-gradient(135deg,#66c8f2,#2a7fb6); color:#fff; font-size:13px; font-family:inherit; cursor:pointer; }
+  .log::-webkit-scrollbar { width:6px; }
+  .log::-webkit-scrollbar-thumb { background:#bfe6f7; border-radius:3px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="bar">
+      <span>💬 <span id="petName">大肥鱼</span></span>
+      <button id="close" title="收起">✕</button>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="status" id="status">回车发送</div>
+    <div class="row">
+      <button class="toggle" id="toggle" title="展开/收起聊天记录">📜</button>
+      <input id="text" placeholder="在吗？" maxlength="500" />
+      <button class="send" id="send">说</button>
+    </div>
+  </div>
+<script>
+  const api = window.ycpPet || { chatSend(){}, onChatReply(){}, action(){}, chatResize(){} }
+  if (api.config && api.config.name) { const el = document.getElementById('petName'); if (el) el.textContent = api.config.name }
+  const log = document.getElementById('log')
+  const input = document.getElementById('text')
+  const status = document.getElementById('status')
+  const toggle = document.getElementById('toggle')
+  let expanded = false
+
+  function scroll() { log.scrollTop = log.scrollHeight }
+  function add(kind, text) {
+    const element = document.createElement('div')
+    element.className = 'msg ' + kind
+    const span = document.createElement('span')
+    span.textContent = text
+    element.appendChild(span)
+    log.appendChild(element)
+    scroll()
+    return { element, span }
+  }
+  function memeImage(name) {
+    const image = document.createElement('img')
+    image.className = 'meme'
+    image.src = '../memes/' + encodeURIComponent(String(name).split(/[\\/]/).pop())
+    return image
+  }
+  function setExpanded(next) {
+    expanded = next
+    document.body.classList.toggle('expanded', expanded)
+    toggle.textContent = expanded ? '▾ 收起' : '▸ 记录'
+    if (typeof api.chatResize === 'function') api.chatResize(expanded)
+    if (expanded) scroll()
+  }
+
+  function submit() {
+    const text = input.value.trim()
+    if (!text) return
+    input.value = ''
+    add('me', text)
+    status.textContent = '她正在想…'
+    if (typeof api.chatSend === 'function') api.chatSend(text)
+  }
+
+  toggle.addEventListener('click', () => setExpanded(!expanded))
+  document.getElementById('send').addEventListener('click', submit)
+  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') submit() })
+  document.getElementById('close').addEventListener('click', () => api.action('chat-close'))
+
+  if (api.onChatReply) api.onChatReply((reply) => {
+    if (!reply || !reply.ok) {
+      add('her', '唔…' + String((reply && reply.error) || '没说出来'))
+      status.textContent = '她没说成，桌面留了张纸条'
+      return
+    }
+    const { element, span } = add('her', '')
+    if (reply.meme) element.appendChild(memeImage(reply.meme))
+    const text = String(reply.text)
+    let index = 0
+    const timer = setInterval(() => {
+      index = Math.min(text.length, index + 2)
+      span.textContent = text.slice(0, index)
+      if (expanded) scroll()
+      if (index >= text.length) {
+        clearInterval(timer)
+        status.textContent = '她：' + text.replace(/\s+/g, ' ').slice(0, 34)
+        if (expanded) scroll()
+      }
+    }, 22)
+  })
+  window.addEventListener('focus', () => input.focus())
+</script>
+</body>
+</html>
