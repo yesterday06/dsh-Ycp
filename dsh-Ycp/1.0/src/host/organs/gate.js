@@ -65,7 +65,7 @@ export function recordEvent(state, now = Date.now()) {
  * 每只手有自己的开关，关着就直接拒，不认识的手也拒。
  */
 export function checkHand(hands, hand) {
-  const known = ['browser', 'desktop', 'script', 'runCommand']
+  const known = ['browser', 'desktop', 'script', 'runCommand', 'actions']
   if (!known.includes(hand)) return { allow: false, reason: 'permission', error: `不认识的手：${String(hand)}` }
   if (hands?.[hand] === true) return { allow: true }
   return { allow: false, reason: 'permission', error: `「${hand}」这条手是关着的` }

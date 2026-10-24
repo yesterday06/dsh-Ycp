@@ -226,8 +226,13 @@ export function createBrowserHand(options = {}) {
     }
   }
 
-  async function start() {
-    if (session) return session
+  async function start(options = {}) {
+    const headless = options.headless !== false
+    if (session) {
+      // 用户关掉可见窗口后子进程会退出，下一次动作要重新拉起
+      if (session.child.exitCode === null) return session
+      session = null
+    }
     if (starting) return starting
     starting = (async () => {
       const detected = detectBrowser(env)
@@ -235,7 +240,7 @@ export function createBrowserHand(options = {}) {
       const dirs = paths()
       mkdirSync(dirs.profile, { recursive: true })
       const args = [
-        '--headless=new',
+        ...(headless ? ['--headless=new'] : ['--window-size=1280,860', '--window-position=80,60']),
         '--remote-debugging-port=0',
         `--user-data-dir=${dirs.profile}`,
         '--no-first-run',
@@ -275,16 +280,16 @@ export function createBrowserHand(options = {}) {
       const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true })
       await cdp.send('Page.enable', {}, sessionId)
       await cdp.send('Runtime.enable', {}, sessionId)
-      session = { child, cdp, sessionId, targetId, browser: detected }
+      session = { child, cdp, sessionId, targetId, browser: detected, visible: !headless }
       lastUsed = Date.now()
       if (timer) clearInterval(timer)
       timer = setInterval(() => {
-        if (session && Date.now() - lastUsed > IDLE_MS) {
+        if (session && !session.visible && Date.now() - lastUsed > IDLE_MS) {
           close().catch(() => {})
         }
       }, 60_000)
       if (typeof timer.unref === 'function') timer.unref()
-      remember('启动', `${detected.name} headless`, true)
+      remember('启动', `${detected.name} ${headless ? 'headless' : '可见窗口'}`, true)
       return session
     })().finally(() => { starting = null })
     return starting
@@ -349,6 +354,39 @@ export function createBrowserHand(options = {}) {
     lastUsed = Date.now()
     current = { url: info?.url ?? current.url, title: info?.title ?? current.title }
     return { url: current.url, title: current.title, text: String(info?.text ?? '').slice(0, MAX_TEXT) }
+  }
+
+  /** 在页面里执行一段 JS，用来点没有文字的按钮、填表、读状态。 */
+  async function evalJs(expression) {
+    const code = String(expression ?? '').trim()
+    if (!code) throw new Error('要执行什么脚本？')
+    if (code.length > 8000) throw new Error('脚本太长（上限 8000 字符）')
+    const value = await evaluate(code)
+    remember('页面脚本', code.slice(0, 80), true)
+    return { value: value === undefined ? null : value }
+  }
+
+  /**
+   * 打开一个**可见**的浏览器窗口，让主人自己登录。
+   * 登录态就存在她的浏览器 profile 里，之后 headless 的动作也带着它。
+   */
+  async function login(url = 'https://www.bilibili.com') {
+    const target = String(url || 'https://www.bilibili.com').trim()
+    const checked = checkUrlAllowed(target, getSettings()?.hands?.browserSites)
+    if (!checked.ok) throw new Error(checked.error)
+    await close()
+    const s = await start({ headless: false })
+    lastUsed = Date.now()
+    await s.cdp.send('Page.navigate', { url: checked.url }, s.sessionId)
+    await waitReady(20_000)
+    const info = await evaluate('({url: location.href, title: document.title})').catch(() => null)
+    remember('打开登录窗口', checked.url, true)
+    return {
+      opened: true,
+      url: info?.url ?? checked.url,
+      title: info?.title ?? '',
+      note: '这是她的浏览器窗口。在这里登录 B站/抖音/小黑盒，登录完直接关掉窗口；登录态留在她的 profile 里，之后 headless 动作也能用。只登你愿意交给她的账号。',
+    }
   }
 
   async function click(label) {
@@ -467,7 +505,7 @@ export function createBrowserHand(options = {}) {
     return { closed: true }
   }
 
-  return { status, goto, text, click, type, screenshot, wait, close, start }
+  return { status, goto, text, click, type, screenshot, wait, close, start, evalJs, login }
 }
 
 function basename(file) {
@@ -525,6 +563,28 @@ export function installBrowserTools(registry, hand) {
       hand: 'browser',
       schema: { type: 'object', properties: { ms: { type: 'integer', description: '毫秒' } }, required: ['ms'] },
       run: async ({ ms }) => hand.wait(ms),
+    },
+    {
+      id: 'browser.login',
+      description: '打开一个可见的浏览器窗口，让主人自己登录 B站/抖音/小黑盒；登录完关掉窗口，登录态留在她的浏览器里',
+      hand: 'browser',
+      schema: {
+        type: 'object',
+        properties: { url: { type: 'string', description: '要登录的站点，默认 B站首页' } },
+        required: [],
+      },
+      run: async ({ url }) => hand.login(url),
+    },
+    {
+      id: 'browser.eval',
+      description: '在她当前页面里执行一段 JS：点没文字的按钮、填表、读页内状态（登录后的动作，需打开「登录后的动作」手）',
+      hand: 'actions',
+      schema: {
+        type: 'object',
+        properties: { expression: { type: 'string', description: '要执行的 JS，可 return 一个能序列化的值' } },
+        required: ['expression'],
+      },
+      run: async ({ expression }) => hand.evalJs(expression),
     },
   ]
 

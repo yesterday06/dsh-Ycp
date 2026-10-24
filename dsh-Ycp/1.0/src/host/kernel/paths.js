@@ -41,6 +41,8 @@ export const DEFAULT_HANDS = {
   desktopApps: [],
   script: true,
   runCommand: false,
+  /** 登录后的动作：点赞/评论/发弹幕/填表。默认关，开了她才敢用登录态。 */
+  actions: false,
 }
 
 /** 默认设置。只放真正用得到的字段，后面的阶段各加各的。 */
@@ -363,7 +365,7 @@ export function normalizeProactive(input) {
 export function normalizeHands(input) {
   const hands = { ...DEFAULT_HANDS, browserSites: [], desktopApps: [] }
   if (!input || typeof input !== 'object' || Array.isArray(input)) return hands
-  for (const key of ['browser', 'desktop', 'script', 'runCommand']) {
+  for (const key of ['browser', 'desktop', 'script', 'runCommand', 'actions']) {
     if (typeof input[key] === 'boolean') hands[key] = input[key]
   }
   for (const key of ['browserSites', 'desktopApps']) {
@@ -412,7 +414,7 @@ export function saveSettings(patch) {
     if (!hands || typeof hands !== 'object' || Array.isArray(hands)) {
       return { ok: false, error: 'hands 必须是对象' }
     }
-    for (const key of ['browser', 'desktop', 'script', 'runCommand']) {
+    for (const key of ['browser', 'desktop', 'script', 'runCommand', 'actions']) {
       if (key in hands && typeof hands[key] !== 'boolean') {
         return { ok: false, error: `hands.${key} 必须是 true / false` }
       }

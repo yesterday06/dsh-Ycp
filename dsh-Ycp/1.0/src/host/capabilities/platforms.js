@@ -113,7 +113,7 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
         keyword: word,
         ok: false,
         needLogin: true,
-        error: '抖音要登录/过验证码才能搜。想让她刷抖音，得先用你自己的浏览器登录，再让她在已登录环境里操作（这一步还没做）。',
+        error: '抖音要登录/过验证码。先用 browser.login 打开她的浏览器窗口，你登录一次后关掉，她就能带着登录态再搜。',
       }
     }
     return { ...result, keyword: word }
@@ -137,7 +137,102 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     return { running: windows.length > 0, windows }
   }
 
-  return { biliSearch, biliHot, heyboxSearch, douyinSearch, qqSend, qqStatus }
+  // ---- 登录后的动作（都要 actions 这条手）----
+
+  const SELECTORS = {
+    like: ['.video-like', '.toolbar-left-item-wrap .like', '#arc_toolbar_report .like', '.like'],
+    follow: ['.follow-btn', '.bili-follow-btn', '.default-btn.follow'],
+    commentBox: ['.reply-box-textarea', '.comment-box textarea', 'textarea[placeholder*="评论"]'],
+    commentSubmit: ['.comment-submit', '.submit-btn', '.reply-box .btn-send'],
+  }
+
+  async function clickFirst(selectors) {
+    need(browser)
+    if (typeof browser.evalJs !== 'function') throw new Error('当前浏览器手没有 eval 能力')
+    const script = `(() => {
+      const sels = ${JSON.stringify(selectors)};
+      for (const sel of sels) {
+        const el = document.querySelector(sel);
+        if (el) { el.scrollIntoView({ block: 'center' }); el.click(); return sel; }
+      }
+      return null;
+    })()`
+    const result = await browser.evalJs(script)
+    return result?.value ?? null
+  }
+
+  async function loginWall() {
+    const { value } = await browser.evalJs(`Boolean(document.querySelector('.login-panel, .bili-login-card, .login-scan-box, [class*="login-dialog"]'))`)
+    return Boolean(value)
+  }
+
+  async function biliAction({ url, kind }) {
+    const target = String(url ?? '').trim()
+    if (!/^https?:\/\/(www\.)?bilibili\.com\//i.test(target)) throw new Error('给一个 B站视频页网址')
+    await browser.goto(target)
+    await browser.wait(1800)
+    const clicked = await clickFirst(SELECTORS[kind] || [])
+    if (!clicked) {
+      const wall = await loginWall()
+      throw new Error(wall
+        ? '点了没反应，弹了登录框——先用 browser.login 登录 B站，再打开「登录后的动作」'
+        : `没找到${kind === 'like' ? '点赞' : '关注'}按钮（页面结构可能变了，或者这条视频/用户不支持）`)
+    }
+    await browser.wait(800)
+    const wall = await loginWall()
+    if (wall) return { ok: false, needLogin: true, clicked, url: target, error: '登录态失效了，重新 browser.login 一次' }
+    log('B站动作', { kind, url: target, selector: clicked })
+    return { ok: true, clicked, url: target }
+  }
+
+  async function biliLike({ url }) {
+    return biliAction({ url, kind: 'like' })
+  }
+
+  async function biliFollow({ url }) {
+    return biliAction({ url, kind: 'follow' })
+  }
+
+  async function biliComment({ url, text }) {
+    const target = String(url ?? '').trim()
+    const body = String(text ?? '').trim()
+    if (!/^https?:\/\/(www\.)?bilibili\.com\//i.test(target)) throw new Error('给一个 B站视频页网址')
+    if (!body) throw new Error('评论写什么？')
+    if (body.length > 300) throw new Error('一条最多 300 字')
+    await browser.goto(target)
+    await browser.wait(2000)
+    const script = `(() => {
+      const box = ${JSON.stringify(SELECTORS.commentBox)}.map((sel) => document.querySelector(sel)).find(Boolean);
+      if (!box) return { filled: false, reason: 'no-box' };
+      box.focus();
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(box, ${JSON.stringify(body)});
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+      const btn = ${JSON.stringify(SELECTORS.commentSubmit)}.map((sel) => document.querySelector(sel)).find(Boolean);
+      if (btn) btn.click();
+      return { filled: true, submitted: Boolean(btn) };
+    })()`
+    const { value } = await browser.evalJs(script)
+    if (!value?.filled) {
+      const wall = await loginWall()
+      throw new Error(wall ? '要登录才能评论，先 browser.login' : '没找到评论框（页面结构可能变了）')
+    }
+    await browser.wait(1200)
+    log('B站评论', { url: target, chars: body.length, submitted: value.submitted })
+    return { ok: true, url: target, chars: body.length, submitted: Boolean(value.submitted) }
+  }
+
+  return {
+    biliSearch,
+    biliHot,
+    heyboxSearch,
+    douyinSearch,
+    qqSend,
+    qqStatus,
+    biliLike,
+    biliFollow,
+    biliComment,
+  }
 }
 
 export function installPlatformTools(registry, platforms) {
@@ -169,6 +264,31 @@ export function installPlatformTools(registry, platforms) {
       hand: 'browser',
       schema: { type: 'object', properties: { keyword: { type: 'string' } }, required: ['keyword'] },
       run: async ({ keyword }) => platforms.douyinSearch({ keyword }),
+    },
+    {
+      id: 'bili.like',
+      description: '给一个 B站视频点赞（需要登录态 + 「登录后的动作」手）',
+      hand: 'actions',
+      schema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      run: async ({ url }) => platforms.biliLike({ url }),
+    },
+    {
+      id: 'bili.follow',
+      description: '关注一个 B站 UP 主（需要登录态 + 「登录后的动作」手）',
+      hand: 'actions',
+      schema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      run: async ({ url }) => platforms.biliFollow({ url }),
+    },
+    {
+      id: 'bili.comment',
+      description: '在 B站视频下写一条评论（需要登录态 + 「登录后的动作」手）',
+      hand: 'actions',
+      schema: {
+        type: 'object',
+        properties: { url: { type: 'string' }, text: { type: 'string' } },
+        required: ['url', 'text'],
+      },
+      run: async ({ url, text }) => platforms.biliComment({ url, text }),
     },
     {
       id: 'qq.send',

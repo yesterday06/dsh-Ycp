@@ -654,8 +654,7 @@ window.__ModuleLoader__.load({
         } catch { /* 保持旧值 */ }
       }
 
-      const toggleHand = async (id) => {
-        setBrowserBusy(true)
+      const toggleHand = async (id) => {        setBrowserBusy(true)
         setBrowserMsg('')
         try {
           const hands = (state && state.settings && state.settings.hands) || {}
@@ -668,6 +667,24 @@ window.__ModuleLoader__.load({
           setBrowserMsg(`「${id}」这条手已${result.settings.hands[id] ? '打开' : '关掉'}`)
         } catch (cause) {
           setBrowserMsg(`改不了：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setBrowserBusy(false)
+        }
+      }
+
+      const loginBrowser = async () => {
+        setBrowserBusy(true)
+        setBrowserMsg('')
+        try {
+          const result = await call('/tools/invoke', {
+            method: 'POST',
+            body: JSON.stringify({ id: 'browser.login', args: { url: 'https://www.bilibili.com' } }),
+          })
+          if (!result.ok) throw new Error(result.error || '打不开')
+          setBrowserMsg('登录窗口已打开：登录完直接关掉窗口，登录态会留在她的浏览器里')
+          await reloadBrowser()
+        } catch (cause) {
+          setBrowserMsg(`打不开：${String((cause && cause.message) || cause)}`)
         } finally {
           setBrowserBusy(false)
         }
@@ -833,8 +850,7 @@ window.__ModuleLoader__.load({
         } catch { /* 没有声音也继续 */ }
       }
 
-      const saveSound = async (patch) => {
-        const next = { ...(soundForm || {}), ...patch }
+      const saveSound = async (patch) => {        const next = { ...(soundForm || {}), ...patch }
         setSoundForm(next)
         setSoundBusy(true)
         setSoundMsg('')
@@ -1314,6 +1330,7 @@ window.__ModuleLoader__.load({
                     browserInfo && browserInfo.running
                       ? h('button', { className: 'ycp-btn small', disabled: browserBusy, onClick: stopBrowser }, '关掉浏览器')
                       : null,
+                    h('button', { className: 'ycp-btn small', disabled: browserBusy, onClick: loginBrowser }, '打开登录窗口'),
                   ),
                   h('div', { className: 'ycp-subrow' },
                     h('span', { className: 'label' }, '白名单'),

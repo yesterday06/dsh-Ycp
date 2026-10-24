@@ -20,12 +20,13 @@ import { checkHand } from '../organs/gate.js'
 const TOOL_ID = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/i
 const MAX_ID = 64
 
-/** 内置的四条手（DESIGN §6.1）；真正能干什么由 P11–P13 的手模块补。 */
+/** 内置的五条手（DESIGN §6.1）；真正能干什么由 P11–P13 的手模块补。 */
 export const BUILTIN_HANDS = [
   { id: 'browser', name: '浏览器', description: '开网页、点东西、填表、截图', risk: '中' },
   { id: 'desktop', name: '桌面', description: '截屏 + 鼠标键盘，操作任何程序', risk: '高' },
   { id: 'script', name: '脚本', description: '读写自己家的文件、写小工具', risk: '低' },
   { id: 'runCommand', name: '跑命令', description: '执行系统命令', risk: '高' },
+  { id: 'actions', name: '登录后的动作', description: '用她的浏览器登录态点赞、评论、发弹幕、填表（账号相关，慎开）', risk: '高' },
 ]
 
 function checkId(id) {

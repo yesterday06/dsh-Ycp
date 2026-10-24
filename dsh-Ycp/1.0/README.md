@@ -134,7 +134,7 @@ Ycp\
 | 注册 | 用途 | 现在有谁 |
 |---|---|---|
 | `registerTool({id, description, schema, run, hand?, permission?})` | 一个能被调用的动作 | `demo.echo`、`demo.time`、`web.search`、`web.fetch`、`memory.remember`、`memory.recall` |
-| `registerHand({id, name, description, risk})` | 一条手（能力通道） | 内置 `browser / desktop / script / runCommand` |
+| `registerHand({id, name, description, risk})` | 一条手（能力通道） | 内置 `browser / desktop / script / runCommand / actions` |
 | `registerAppearance({id, name})` | 外观 / 音效挂件 | `placeholder`（占位） |
 
 工具声明了 `hand` 时，调用前先查手权限；声明了 `permission` 时查 `settings.permissions`（联网搜索 / 网页读取 / 记忆写入 / 记忆检索，四个开关，默认全开）。参数只做最小校验（必填 + 基础类型）。面板「手」区列出全部工具与手、四个权限开关，`demo.echo` 可以直接输入一句话试跑。
@@ -207,6 +207,14 @@ Ycp\
 - 失败：try 的每个办法都写进一张 `此路不通-<时间>.md`（标签 `此路不通`），下次别重复。
 - 3 次都不行：写一条求助（`状态\自主\求助.json`），面板顶部弹出「我卡住了：<目标> —— <原因>」，点「知道了」清掉。
 - 每轮都进行动日志；真动手仍走注册表，手权限与白名单照常生效。
+
+### 登录与登录后的动作
+
+- `browser.login({url})`：开一个**可见**的 Edge 窗口（用她自己的 profile），你登录 B站/抖音/小黑盒，关掉窗口后登录态就留下了。
+- 「登录后的动作」这条手默认**关**；打开后才有：
+  - `browser.eval({expression})`：在她当前页面执行 JS——点没有文字的按钮、填表、读状态。
+  - `bili.like` / `bili.follow` / `bili.comment`：点赞、关注、评论（选择器有多个备选，找不到会明确说「页面结构变了/要登录」）。
+- 登录态存在 `状态\浏览器\profile\`；失效时工具提示重新登录，不会硬来。
 
 ### 桌面窗口与形象（P15）
 
