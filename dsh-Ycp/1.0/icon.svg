@@ -98,4 +98,25 @@
   <circle cx="91" cy="184" r="1.8" fill="#EAFBFF"/>
   <circle cx="109" cy="184" r="1.8" fill="#EAFBFF"/>
   <path d="M89 176 C95 168 100 168 100 176 C100 168 105 168 111 176 C107 182 93 182 89 176 Z" fill="#EAFBFF" opacity=".95"/>
+
+  <!-- 眼睛细节 -->
+  <path d="M74 108 Q81 103.4 88 108" fill="none" stroke="#E8FBFF" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
+  <path d="M112 108 Q119 103.4 126 108" fill="none" stroke="#E8FBFF" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
+  <circle cx="84.6" cy="122.6" r="1.4" fill="#FFFFFF" opacity=".85"/>
+  <circle cx="122.6" cy="122.6" r="1.4" fill="#FFFFFF" opacity=".85"/>
+  <path d="M68 104 Q64 100 60 102" fill="none" stroke="#0C2A3E" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M132 104 Q136 100 140 102" fill="none" stroke="#0C2A3E" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- 小鼻子与虎牙 -->
+  <path d="M99 123.4 Q101 125.6 99.4 127" fill="none" stroke="#E0A08F" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>
+  <path d="M101.4 135.6 L102.6 139 L104 135.8 Z" fill="#FFFFFF"/>
+  <!-- 发丝高光 -->
+  <path d="M70 94 C74 84 82 78 90 80" fill="none" stroke="#E9FBFF" stroke-width="2" stroke-linecap="round" opacity=".35"/>
+  <path d="M112 80 C120 78 128 84 132 92" fill="none" stroke="#E9FBFF" stroke-width="1.6" stroke-linecap="round" opacity=".28"/>
+  <!-- 兜帽边缘高光与斑点 -->
+  <path d="M47 116 C51 148 73 167 100 167" fill="none" stroke="#DFF7FF" stroke-width="1.8" stroke-linecap="round" opacity=".55"/>
+  <circle cx="62" cy="72" r="3.2" fill="#DFF7FF" opacity=".45"/>
+  <circle cx="72" cy="60" r="2" fill="#DFF7FF" opacity=".35"/>
+  <circle cx="140" cy="86" r="2.6" fill="#DFF7FF" opacity=".35"/>
+  <circle cx="132" cy="66" r="1.8" fill="#DFF7FF" opacity=".3"/>
+  <path d="M84 143 C90 147 110 147 116 143" fill="none" stroke="#F2C4B2" stroke-width="2" stroke-linecap="round" opacity=".45"/>
 </svg>

@@ -12,7 +12,8 @@
  * 声音文件落在 状态\语音\，只留最近 50 个。
  */
 import { execFile } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { appendLog, homePaths, loadPersona, loadSettings } from '../kernel/paths.js'
@@ -112,16 +113,70 @@ export function pickVoice(voices, wanted) {
 }
 
 /** 清理旧语音文件，只留最近 MAX_KEEP 个。 */
-function prune(dir) {
+function prune(dir, keep = MAX_KEEP) {
   try {
     const files = readdirSync(dir)
-      .filter((name) => name.endsWith('.wav'))
+      .filter((name) => name.endsWith('.wav') || name.endsWith('.mp3'))
       .map((name) => ({ name, at: statSync(join(dir, name)).mtimeMs }))
       .sort((a, b) => b.at - a.at)
-    for (const item of files.slice(MAX_KEEP)) rmSync(join(dir, item.name), { force: true })
+    for (const item of files.slice(keep)) rmSync(join(dir, item.name), { force: true })
   } catch {
     /* 清理失败不影响合成 */
   }
+}
+
+const STYLES = {
+  soft: { rate: -2, pitch: 8 },
+  cheerful: { rate: 2, pitch: 10 },
+  calm: { rate: -2, pitch: 0 },
+  sharp: { rate: 1, pitch: -6 },
+}
+
+/** 按标点断句：一句一请求，句间天然有停顿，也更像人在说话。 */
+export function splitSpeech(text) {
+  const parts = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[。！？!?；;])/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const out = []
+  for (const part of parts) {
+    if (part.length <= 60) { out.push(part); continue }
+    let rest = part
+    while (rest.length > 60) {
+      const cut = Math.max(rest.lastIndexOf('，', 60), rest.lastIndexOf(',', 60))
+      const index = cut > 10 ? cut + 1 : 60
+      out.push(rest.slice(0, index))
+      rest = rest.slice(index)
+    }
+    if (rest) out.push(rest)
+  }
+  return out.length ? out : [String(text ?? '').trim()]
+}
+
+const TTS_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+
+async function fetchTts(sentence, spd) {
+  const baidu = `https://fanyi.baidu.com/gettts?lan=zh&text=${encodeURIComponent(sentence)}&spd=${spd}&source=web`
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(baidu, {
+        headers: { 'user-agent': TTS_UA, referer: 'https://fanyi.baidu.com/' },
+        signal: AbortSignal.timeout(15_000),
+      })
+      if (response.ok) {
+        const buffer = Buffer.from(await response.arrayBuffer())
+        if (buffer.length > 1200 && buffer[0] === 0xff) return buffer
+      }
+    } catch { /* 重试 */ }
+    await new Promise((resolve) => setTimeout(resolve, 400 + attempt * 600))
+  }
+  const youdao = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(sentence)}&le=zh`
+  const response = await fetch(youdao, { headers: { 'user-agent': TTS_UA }, signal: AbortSignal.timeout(15_000) })
+  if (!response.ok) throw new Error(`在线语音失败 ${response.status}`)
+  const buffer = Buffer.from(await response.arrayBuffer())
+  if (buffer.length < 1000) throw new Error('在线语音没有返回音频')
+  return buffer
 }
 
 export function createVoice({ ctx } = {}) {
@@ -133,12 +188,112 @@ export function createVoice({ ctx } = {}) {
     return { ...DEFAULT_VOICE, ...(value && typeof value === 'object' ? value : {}) }
   }
 
+  /** 神经语音：OpenAI 兼容的 /v1/audio/speech；key 从 YCP_TTS_KEY 读，不落盘。 */
+  async function neuralSynth(text, settings, rate) {
+    const { dir } = voicePaths()
+    mkdirSync(dir, { recursive: true })
+    const key = String(process.env.YCP_TTS_KEY || '').trim()
+    const voiceName = settings.name && !/^Microsoft/i.test(settings.name) ? settings.name : 'alloy'
+    const payload = {
+      model: settings.neuralModel || 'tts-1',
+      input: text,
+      voice: voiceName,
+      speed: Math.max(0.5, Math.min(2, 1 + Number(rate) / 10)),
+      response_format: 'mp3',
+    }
+    const started = Date.now()
+    const response = await fetch(settings.neuralUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...(key ? { authorization: `Bearer ${key}` } : {}),
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!response.ok) throw new Error(`神经语音接口返回 ${response.status}`)
+    const buffer = Buffer.from(await response.arrayBuffer())
+    if (buffer.length < 1000) throw new Error('神经语音接口没返回音频')
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-')
+    const file = join(dir, `voice-${stamp}.mp3`)
+    writeFileSync(file, buffer)
+    prune(dir)
+    appendLog('神经语音合成', { chars: text.length, bytes: buffer.length, voice: voiceName })
+    return {
+      file,
+      name: basename(file),
+      url: `/api/dsh-Ycp/voice/file/${basename(file)}`,
+      bytes: buffer.length,
+      ms: Date.now() - started,
+      voice: voiceName,
+      engine: 'neural',
+    }
+  }
+
+  /** 在线中文语音：百度翻译的接口，按句切、带缓存，比本地 SAPI 自然得多。 */
+  async function onlineSynth(text, spd) {
+    const { dir } = voicePaths()
+    const cacheDir = join(dir, 'cache')
+    mkdirSync(cacheDir, { recursive: true })
+    const started = Date.now()
+    const chunks = []
+    for (const sentence of splitSpeech(text)) {
+      const key = createHash('sha1').update(`${spd}|${sentence}`).digest('hex')
+      const file = join(cacheDir, `${key}.mp3`)
+      let buffer
+      if (existsSync(file)) {
+        buffer = readFileSync(file)
+      } else {
+        buffer = await fetchTts(sentence, spd)
+        writeFileSync(file, buffer)
+      }
+      chunks.push(buffer)
+    }
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-')
+    const out = join(dir, `voice-${stamp}.mp3`)
+    writeFileSync(out, Buffer.concat(chunks))
+    prune(dir)
+    prune(cacheDir, 200)
+    appendLog('在线语音合成', { chars: text.length, sentences: chunks.length, spd })
+    return {
+      file: out,
+      name: basename(out),
+      url: `/api/dsh-Ycp/voice/file/${basename(out)}`,
+      bytes: statSync(out).size,
+      ms: Date.now() - started,
+      voice: '在线中文',
+      engine: 'online',
+    }
+  }
+
   async function synth(text, overrides = {}) {
     const settings = withDefaults(settingsOf())
     const merged = { ...settings, ...overrides }
     const body = String(text ?? '').trim()
     if (!body) throw new Error('要读什么？')
     if (body.length > MAX_CHARS) throw new Error(`一次最多读 ${MAX_CHARS} 字`)
+    const style = STYLES[merged.style] || null
+    const rate = Number(merged.rate) + (style ? style.rate : 0)
+    const pitch = Number(merged.pitch) + (style ? style.pitch : 0)
+
+    if (merged.neuralUrl && /^https?:\/\//i.test(merged.neuralUrl)) {
+      try {
+        return await neuralSynth(body, merged, rate)
+      } catch (error) {
+        appendLog('神经语音失败，退回本地', { error: String(error?.message ?? error).slice(0, 200) })
+      }
+    }
+
+    // 在线语音优先：同一句走缓存，第二次几乎零耗时。
+    try {
+      const timbre = String(merged.timbre || 'natural')
+      const base = timbre === 'soft-loli' ? 3 : timbre === 'tsundere-loli' ? 4 : 5
+      const spd = Math.max(2, Math.min(9, Math.round(base + Number(rate) * 0.5)))
+      return await onlineSynth(body, spd)
+    } catch (error) {
+      appendLog('在线语音失败，退回本地', { error: String(error?.message ?? error).slice(0, 200) })
+    }
+
     const voices = await listVoices()
     const voice = pickVoice(voices, merged.name)
     const { dir } = voicePaths()
@@ -149,8 +304,8 @@ export function createVoice({ ctx } = {}) {
       action: 'speak',
       text: body,
       voice,
-      rate: Number(merged.rate) || 0,
-      pitch: Number(merged.pitch) || 0,
+      rate,
+      pitch,
       volume: Math.max(0, Math.min(100, Number(merged.volume) ?? 100)),
       out: file,
     })
@@ -163,6 +318,7 @@ export function createVoice({ ctx } = {}) {
       bytes: result.bytes,
       ms: result.ms,
       voice,
+      engine: 'sapi',
     }
   }
 

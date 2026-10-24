@@ -87,14 +87,6 @@ export function createSayService(ctx) {
       }
     }
 
-    const model = currentModel(ctx)
-    if (!model) return { ok: false, reason: 'provider-missing', error: '当前对话还没选模型' }
-
-    const llm = service(ctx, 'llm')
-    if (!llm || typeof llm.stream !== 'function') {
-      return { ok: false, reason: 'llm-missing', error: 'LLM 服务不可用' }
-    }
-
     // 放行就记账：模型请求马上要花出去了，失败也算一次尝试。
     commitSay(rate, now)
 
@@ -109,30 +101,69 @@ export function createSayService(ctx) {
         ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
         : '',
     })
-    const wantsOff = await reasoningOffSupported(llm, model.provider, model.model)
     const started = Date.now()
     const pieces = []
     let finish = null
+    let usedModel = ''
 
-    try {
-      const stream = llm.stream({
-        provider: model.provider,
-        model: model.model,
-        system,
-        messages: [{ role: 'user', content: [{ type: 'text', text }] }],
-        temperature: 1,
-        sessionId: 'dsh-Ycp',
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-        ...(wantsOff ? { reasoningEffort: 'off' } : {}),
-      })
-      for await (const chunk of stream) {
-        if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') pieces.push(chunk.text)
-        else if (chunk?.type === 'finish') finish = chunk.reason ?? null
+    const custom = settings.model
+    const customReady = Boolean(custom && custom.baseUrl && custom.apiKey && custom.model)
+    if (customReady) {
+      try {
+        const url = custom.baseUrl.replace(/\/+$/, '') + '/chat/completions'
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${custom.apiKey}` },
+          body: JSON.stringify({
+            model: custom.model,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: text },
+            ],
+            temperature: 1,
+          }),
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        })
+        if (!response.ok) throw new Error(`接口返回 ${response.status}`)
+        const data = await response.json()
+        const content = data?.choices?.[0]?.message?.content
+        if (typeof content !== 'string' || !content.trim()) throw new Error('接口没返回正文')
+        pieces.push(content)
+        usedModel = `custom/${custom.model}`
+      } catch (error) {
+        const message = String(error?.message ?? error)
+        appendLog('自定义接口说话失败', { error: message })
+        return { ok: false, reason: 'generate-error', error: message }
       }
-    } catch (error) {
-      const message = String(error?.message ?? error)
-      appendLog('说话失败', { error: message })
-      return { ok: false, reason: 'generate-error', error: message }
+    } else {
+      const model = currentModel(ctx)
+      if (!model) return { ok: false, reason: 'provider-missing', error: '还没选模型，也没配自定义接口' }
+      const llm = service(ctx, 'llm')
+      if (!llm || typeof llm.stream !== 'function') {
+        return { ok: false, reason: 'llm-missing', error: 'LLM 服务不可用' }
+      }
+      usedModel = `${model.provider}/${model.model}`
+      try {
+        const wantsOff = await reasoningOffSupported(llm, model.provider, model.model)
+        const stream = llm.stream({
+          provider: model.provider,
+          model: model.model,
+          system,
+          messages: [{ role: 'user', content: [{ type: 'text', text }] }],
+          temperature: 1,
+          sessionId: 'dsh-Ycp',
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+          ...(wantsOff ? { reasoningEffort: 'off' } : {}),
+        })
+        for await (const chunk of stream) {
+          if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') pieces.push(chunk.text)
+          else if (chunk?.type === 'finish') finish = chunk.reason ?? null
+        }
+      } catch (error) {
+        const message = String(error?.message ?? error)
+        appendLog('说话失败', { error: message })
+        return { ok: false, reason: 'generate-error', error: message }
+      }
     }
 
     const reply = pieces.join('').trim()
@@ -160,7 +191,7 @@ export function createSayService(ctx) {
 
     appendLog('说话', {
       chars: reply.length,
-      model: `${model.provider}/${model.model}`,
+      model: usedModel,
       ms,
       sleepy: Boolean(gate.sleepy),
       recalled: recalledList.map((item) => item.file),
@@ -168,7 +199,7 @@ export function createSayService(ctx) {
     return {
       ok: true,
       text: reply,
-      model,
+      model: usedModel,
       ms,
       awake: !gate.sleepy,
       sleepy: Boolean(gate.sleepy),

@@ -4,49 +4,224 @@
 <meta charset="utf-8" />
 <title>大肥鱼</title>
 <style>
-  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; user-select: none; }
-  body { width: 200px; height: 200px; position: relative; cursor: grab; }
-  body.dragging { cursor: grabbing; }
-  .stage { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; }
-  .fish { width: 200px; height: 200px; transform-origin: 50% 72%; animation: bob 2.8s ease-in-out infinite; filter: drop-shadow(0 8px 12px rgba(10, 40, 70, .28)); }
-  .fish.pop { animation: pop .45s ease-out; }
-  body.swim .fish { animation: swim 3.4s ease-in-out infinite; }
-  body.nap .fish { animation: nap 4.5s ease-in-out infinite; opacity: .88; }
+  @font-face { font-family:'RuanTang'; src:url('../fonts/ruantang.ttf') format('truetype'); font-display:swap; }
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden; user-select:none; }
+  body { width:100vw; height:100vh; position:relative; cursor:default; font-family:'RuanTang','Microsoft YaHei',sans-serif; }
+  body.dragging { cursor:grabbing; }
+  .stage { position:absolute; left:0; right:0; bottom:0; height:65%; display:flex; align-items:flex-end; justify-content:center; }
+  .sprite { height:100%; width:auto; object-fit:contain; object-position:bottom center; transform-origin:50% 84%; animation:bob 3.4s ease-in-out infinite; opacity:1; transition:opacity .22s; filter:drop-shadow(0 10px 14px rgba(10,40,70,.22)); pointer-events:none; }
+  body.nap .sprite { animation:nap 5s ease-in-out infinite; opacity:.92; }
   .bubble {
-    position: absolute; top: 8px; left: 50%; transform: translateX(-50%) scale(.9);
-    background: rgba(255,255,255,.96); color: #1c3b52; border-radius: 12px;
-    padding: 5px 11px; font: 12px/1.4 "Microsoft YaHei", system-ui, sans-serif;
-    box-shadow: 0 4px 12px rgba(0,0,0,.18); opacity: 0; transition: opacity .18s, transform .18s;
-    white-space: nowrap; pointer-events: none;
+    position:absolute; bottom:66%; left:50%; transform:translateX(-50%) rotate(-1.2deg) scale(.88); transform-origin:bottom center;
+    max-width:96%; min-width:64%; background:linear-gradient(180deg,#ffffff 0%,#effaff 100%); color:#22475f;
+    border:2.5px solid #8fd9f4; border-radius:22px 26px 20px 24px / 24px 20px 26px 20px;
+    padding:6px 10px 7px; font-size:clamp(10px,3.4vh,16px); line-height:1.35; text-align:center;
+    box-shadow:0 3px 0 rgba(143,217,244,.45), 0 10px 20px rgba(40,110,150,.18);
+    opacity:0; transition:opacity .15s, transform .18s cubic-bezier(.34,1.56,.64,1); pointer-events:none;
   }
-  .bubble.show { opacity: 1; transform: translateX(-50%) scale(1); }
-  .zzz { position: absolute; right: 18px; top: 22px; font: 700 16px/1 system-ui; color: #6ea8cc; opacity: 0; }
-  body.nap .zzz { opacity: 1; animation: zzz 3s ease-in-out infinite; }
-  @keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
-  @keyframes swim { 0%,100% { transform: translateX(-8px) rotate(-4deg) } 50% { transform: translateX(8px) rotate(4deg) } }
-  @keyframes nap { 0%,100% { transform: translateY(2px) scale(.985) } 50% { transform: translateY(6px) scale(.975) } }
-  @keyframes zzz { 0% { transform: translateY(0); opacity: .2 } 50% { transform: translateY(-8px); opacity: 1 } 100% { transform: translateY(-16px); opacity: 0 } }
-  @keyframes pop { 0% { transform: scale(1) } 40% { transform: scale(1.14) } 100% { transform: scale(1) } }
+  .bubble::after { content:''; position:absolute; left:50%; bottom:-8px; width:12px; height:12px; background:#effaff; border-right:2.5px solid #8fd9f4; border-bottom:2.5px solid #8fd9f4; transform:translateX(-50%) rotate(45deg); }
+  .bubble.show { opacity:1; transform:translateX(-50%) rotate(-1.2deg) scale(1); }
+  #bubbleText { display:-webkit-box; -webkit-line-clamp:8; -webkit-box-orient:vertical; overflow:hidden; }
+  .bubble-meme { display:none; width:82%; max-height:110px; object-fit:contain; margin:2px auto 5px; border-radius:12px; }
+  .bubble-meme.show { display:block; }
+  .pin-badge { position:absolute; left:6%; top:6%; width:22px; height:22px; border-radius:50%; background:#fff3d6; border:1.5px solid #f0c46a; display:none; align-items:center; justify-content:center; font-size:12px; box-shadow:0 2px 6px rgba(120,90,20,.2); }
+  body.pinned .pin-badge { display:flex; }
+  .zzz { position:absolute; right:8%; top:6%; font:700 15px/1 system-ui; color:#6ea8cc; opacity:0; }
+  body.nap .zzz { opacity:1; animation:zzz 3s ease-in-out infinite; }
+  .panel { position:absolute; left:3%; right:3%; bottom:4%; background:rgba(255,255,255,.97); border:2px solid #a8e0f5; border-radius:18px; box-shadow:0 14px 30px rgba(20,70,110,.22); padding:8px; display:none; font-family:'RuanTang','Microsoft YaHei'; }
+  .panel.show { display:block; }
+  .chat-row { display:flex; gap:5px; flex-wrap:wrap; }
+  .chat-row input { flex:1; min-width:0; border:2px solid #bfe6f7; border-radius:12px; padding:6px 8px; font-size:13px; outline:none; background:#f8fdff; color:#1b3c53; font-family:inherit; }
+  .chat-row button { border:0; border-radius:12px; padding:0 11px; background:linear-gradient(135deg,#66c8f2,#2a7fb6); color:#fff; font-size:13px; cursor:pointer; font-family:inherit; }
+  .ledger-stats { font-size:13px; color:#22475f; text-align:center; padding:2px 0 4px; }
+  .ledger-cat { border:2px solid #bfe6f7; border-radius:12px; background:#f8fdff; font-family:inherit; font-size:12px; max-width:74px; }
+  .settings { display:grid; gap:6px; font-size:13px; color:#1b3c53; }
+  .settings label { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .settings select { border:2px solid #bfe6f7; border-radius:10px; padding:2px 5px; font-size:12px; background:#f8fdff; font-family:inherit; }
+  .settings .save { border:0; border-radius:11px; padding:5px 10px; background:#2a7fb6; color:#fff; font-size:13px; cursor:pointer; font-family:inherit; }
+  .hint { font-size:11px; color:#7aa6bf; text-align:center; }
+  .menu { position:absolute; display:none; width:min(194px,92vw); max-height:92%; overflow:auto; background:linear-gradient(180deg,rgba(255,255,255,.99),rgba(236,250,255,.99)); border:2px solid #8fd9f4; border-radius:18px; box-shadow:0 18px 44px rgba(20,70,110,.28), inset 0 1px 0 #fff; padding:7px; font-family:'RuanTang','Microsoft YaHei'; z-index:20; backdrop-filter:blur(8px); }
+  .menu.show { display:block; }
+  .menu .item { display:flex; align-items:center; gap:7px; padding:6px 9px; border-radius:11px; font-size:13.5px; color:#22475f; cursor:pointer; white-space:nowrap; transition:background .12s, transform .12s; }
+  .menu .item:hover { background:#dff4ff; transform:translateX(2px); }
+  .menu .sub { font-size:11px; color:#7aa6bf; padding:2px 8px; }
+  .menu .row { display:flex; gap:4px; padding:3px 7px; }
+  .menu .chip { flex:1; text-align:center; border:1.5px solid #bfe6f7; border-radius:9px; padding:2px 0; font-size:12px; cursor:pointer; color:#2a7fb6; }
+  .menu .chip.on { background:#2a7fb6; border-color:#2a7fb6; color:#fff; }
+  .menu .sep { height:1px; background:#e2f2fa; margin:3px 5px; }
+  .menu .grid { display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:3px 5px; }
+  .menu .grid span { font-size:12px; padding:3px 4px; border-radius:8px; background:#f4fbff; text-align:center; cursor:pointer; color:#2a7fb6; }
+  .menu .grid span:hover { background:#e0f5ff; }
+  @keyframes bob { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-4px) } }
+  @keyframes nap { 0%,100% { transform:translateY(0) scale(.99) } 50% { transform:translateY(3px) scale(.985) } }
+  @keyframes zzz { 0% { transform:translateY(0); opacity:.2 } 50% { transform:translateY(-8px); opacity:1 } 100% { transform:translateY(-16px); opacity:0 } }
 </style>
 </head>
 <body>
+  <div class="pin-badge">📌</div>
   <div class="zzz">z z</div>
-  <div class="bubble" id="bubble">咕噜～</div>
-  <div class="stage">
-    <img class="fish" id="fish" src="../character/whale-girl.svg" alt="大肥鱼" draggable="false" />
-  </div><script>
+  <div class="bubble" id="bubble"><img class="bubble-meme" id="bubbleMeme" alt="" /><span id="bubbleText">咕噜～</span></div>
+  <div class="stage"><video class="sprite" id="sprite" autoplay loop muted playsinline draggable="false"></video></div>
+
+  <div class="panel" id="chatPanel">
+    <div class="chat-row">
+      <input id="chatInput" placeholder="跟她说点什么…" maxlength="200" />
+      <button id="sendBtn">说</button>
+    </div>
+    <div class="hint">回车发送，她会用语音回你</div>
+  </div>
+
+  <div class="panel" id="settingsPanel">
+    <div class="settings">
+      <label>声音 <input type="checkbox" id="sVoice" /></label>
+      <label>自动朗读 <input type="checkbox" id="sAuto" /></label>
+      <label>音色
+        <select id="sTimbre">
+          <option value="soft-loli">软萌萝莉</option>
+          <option value="tsundere-loli">傲娇萝莉</option>
+          <option value="natural">自然</option>
+        </select>
+      </label>
+      <label>音效 <input type="checkbox" id="sSound" /></label>
+      <label>碎碎念 <input type="checkbox" id="sChatter" /></label>
+      <button class="save" id="saveSettings">保存</button>
+    </div>
+  </div>
+
+  <div class="panel" id="ledgerPanel">
+    <div class="ledger-stats" id="ledgerStats">账本读取中…</div>
+    <div class="chat-row" style="margin-top:6px">
+      <input id="ledgerAmount" type="number" min="0" step="0.01" placeholder="金额" style="max-width:64px" />
+      <select id="ledgerCat" class="ledger-cat"></select>
+      <input id="ledgerNote" placeholder="备注" />
+      <button id="ledgerAdd">记</button>
+    </div>
+  </div>
+  <div class="menu" id="menu">
+    <div class="item" data-act="chat">💬 跟她说话</div>
+    <div class="item" data-act="settings">⚙ 设置</div>
+    <div class="item" data-act="ledger">💰 记账</div>
+    <div class="item" data-act="pin" id="pinItem">📌 固定</div>
+    <div class="item" data-act="gravity" id="gravityItem">🌍 重力：开</div>
+    <div class="sub">大小</div>
+    <div class="row" id="sizeRow">
+      <div class="chip" data-size="0.7">小</div>
+      <div class="chip" data-size="1">中</div>
+      <div class="chip" data-size="1.35">大</div>
+      <div class="chip" data-size="1.7">特大</div>
+    </div>
+    <div class="sep"></div>
+    <div class="sub">动画</div>
+    <div class="grid" id="animGrid">
+      <span data-cat="idle">待机</span><span data-cat="click">开心</span>
+      <span data-cat="eat">吃一口</span><span data-cat="play">玩耍</span>
+      <span data-cat="work">干活</span><span data-cat="sleep">打盹</span>
+      <span data-cat="balance">数钱</span><span data-cat="random">随机</span>
+    </div>
+    <div class="sep"></div>
+    <div class="item" data-act="open">🪟 打开面板</div>
+    <div class="item" data-act="close">✕ 收起</div>
+  </div>
+
+  <script src="../character/animations.js"></script>
+  <script src="../memes/memes.js"></script>
+<script>
   const body = document.body
   const bubble = document.getElementById('bubble')
-  const fish = document.getElementById('fish')
-  const pet = window.ycpPet || { config: {}, dragStart() {}, dragMove() {}, dragEnd() {}, reaction() {}, menu() {}, onState() {} }
+  const spriteEl = document.getElementById('sprite')
+  const menuEl = document.getElementById('menu')
+  const pet = window.ycpPet || { config:{}, balance:()=>null, api:async()=>({ok:false}), audio:async()=>({ok:false}), action(){}, mouse(){}, dragStart(){}, dragMove(){}, dragEnd(){}, reaction(){}, onState(){}, onChat(){}, onSettings(){}, onPinned(){}, onScale(){}, onAnim(){}, onMenu(){}, onGravity(){} }
 
-  let dragging = false
-  let moved = 0
-  let startedAt = 0
-  let samples = []
-  let bubbleTimer = null
+  const ANIMS = Array.isArray(window.YCP_ANIMS) ? window.YCP_ANIMS : []
+  const byCat = {}
+  for (const item of ANIMS) (byCat[item.category] = byCat[item.category] || []).push(item)
+  const pickCat = (cat) => {
+    const pool = byCat[cat] || byCat.idle || ANIMS
+    return pool[Math.floor(Math.random() * pool.length)] || ANIMS[0]
+  }
+  const url = (item) => '../character/anim-hd/' + item.file
 
-  const lines = ['咕噜～', '在呢', '嗯？', '别戳我', '水有点凉', '今天吃什么']
+  let dragging = false, moved = 0, startedAt = 0, samples = [], bubbleTimer = null
+  let current = null, chatOpen = false, settingsOpen = false, settings = {}
+  let playRate = 1.2, chatter = true, pinned = false, gravity = true, scale = 1, mood = null
+
+  const lines = ['哼，才不是在等你呢。', '水有点凉…', '今天也没下雨', '有人在吗', '肚子有点饿了', '屏幕好亮']
+  const angryLines = ['哼！谁要理你。', '再戳就咬你了。', '烦不烦呀…']
+  const happyLines = ['今天心情不错哦。', '嘿嘿，被你发现了。', '要不要一起摸摸鱼？']
+
+  function say(text, hold = 1800, hasMeme = false) {
+    const content = String(text ?? '')
+    const textNode = document.getElementById('bubbleText')
+    textNode.textContent = content
+    const length = content.length
+    const font = length > 110 ? 10 : length > 60 ? 12 : length > 25 ? 13 : 14
+    bubble.style.fontSize = font + 'px'
+    if (!hasMeme) document.getElementById('bubbleMeme').classList.remove('show')
+    // 先给足行数，再按实际可用高度一档档收，保证气泡不越界也不截断太多
+    textNode.style.webkitLineClamp = '40'
+    const available = innerHeight * 0.34 - 18 - (hasMeme ? 96 : 0)
+    let lines = 40
+    while (bubble.offsetHeight > available && lines > 2) {
+      lines -= 1
+      textNode.style.webkitLineClamp = String(lines)
+    }
+    bubble.classList.add('show')
+    if (bubbleTimer) clearTimeout(bubbleTimer)
+    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), hold)
+  }
+
+  window.__ycpSay = say
+
+  spriteEl.addEventListener('error', () => {
+    if (spriteEl.src.includes('/anim-hd/')) spriteEl.src = spriteEl.src.replace('/anim-hd/', '/anim/')
+  })
+
+  function swapTo(item, loop, onEnded) {
+    spriteEl.style.opacity = '0'
+    setTimeout(() => {
+      spriteEl.src = url(item)
+      spriteEl.loop = loop
+      spriteEl.onended = onEnded || null
+      spriteEl.play().catch(() => {})
+      spriteEl.style.opacity = '1'
+    }, 90)
+  }
+
+  function playCat(cat) {
+    const item = pickCat(cat)
+    if (!item) return
+    current = item.id
+    swapTo(item, true)
+  }
+
+  function playOnce(cat) {
+    const item = pickCat(cat)
+    if (!item) return
+    current = item.id
+    swapTo(item, false, () => { spriteEl.onended = null; playCat(body.classList.contains('nap') ? 'sleep' : 'idle') })
+  }
+
+  function overCharacter(event) {
+    const r = body.getBoundingClientRect()
+    const x = (event.clientX - r.left) / r.width
+    const y = (event.clientY - r.top) / r.height
+    const dx = (x - 0.5) / 0.31
+    const dy = (y - 0.75) / 0.3
+    return dx * dx + dy * dy <= 1
+  }
+
+  let solid = false
+  function setSolid(next) {
+    if (solid === next) return
+    solid = next
+    pet.mouse(next ? 'solid' : 'pass')
+  }
+
+  window.addEventListener('mousemove', (event) => {
+    if (pinned) { setSolid(false); return }
+    if (dragging || menuEl.classList.contains('show') || chatOpen || settingsOpen || ledgerOpen) { setSolid(true); return }
+    setSolid(overCharacter(event))
+  })
 
   function playClick() {
     try {
@@ -55,27 +230,263 @@
       const audio = new Audio(config.clickUrl)
       audio.volume = Math.max(0, Math.min(1, config.volume / 100))
       audio.play().catch(() => {})
-    } catch { /* 没有声音也照常卖萌 */ }
+    } catch {}
   }
 
-  function say(text) {
-    bubble.textContent = text
-    bubble.classList.add('show')
-    if (bubbleTimer) clearTimeout(bubbleTimer)
-    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 1300)
+  async function playVoice(path) {
+    try {
+      const result = await pet.audio(path)
+      if (!result || !result.ok) return
+      const audio = new Audio('file:///' + String(result.file).replace(/\\/g, '/'))
+      audio.preservesPitch = false
+      audio.playbackRate = playRate
+      await audio.play()
+    } catch {}
   }
 
-  function pop() {
-    fish.classList.remove('pop')
-    void fish.getBoundingClientRect()
-    fish.classList.add('pop')
+  async function speak(text) {
+    const result = await pet.api('/api/dsh-Ycp/voice/speak', 'POST', { text })
+    if (result && result.ok && result.data && result.data.url) await playVoice(result.data.url)
+  }
+
+  function playLocal(filePath) {
+    try {
+      const audio = new Audio('file:///' + String(filePath).replace(/\\/g, '/'))
+      audio.preservesPitch = false
+      audio.playbackRate = playRate
+      audio.play().catch(() => {})
+    } catch {}
+  }
+
+  function sendChat() {
+    const input = document.getElementById('chatInput')
+    const text = input.value.trim()
+    if (!text) return
+    input.value = ''
+    say('她正在想…', 8000)
+    playCat('work')
+    if (typeof pet.chatSend === 'function') pet.chatSend(text)
+    else say('对话通道没接上…', 2200)
+  }
+
+  let replySeq = 0
+  let replyTimer = null
+
+  function splitReply(text) {
+    const clean = String(text ?? '').replace(/\r/g, '').trim()
+    if (!clean) return ['']
+    const sentences = clean.split(/(?<=[。！？!?；;\n])/)
+    const segments = []
+    let buffer = ''
+    for (const sentence of sentences) {
+      if (buffer && (buffer + sentence).length > 60) {
+        segments.push(buffer)
+        buffer = ''
+      }
+      buffer += sentence
+      while (buffer.length > 90) {
+        segments.push(buffer.slice(0, 90))
+        buffer = buffer.slice(90)
+      }
+    }
+    if (buffer) segments.push(buffer)
+    return segments
+  }
+
+  function playReply(text, memeShown) {
+    const segments = splitReply(text)
+    const seq = ++replySeq
+    if (replyTimer) clearTimeout(replyTimer)
+    const step = (index) => {
+      if (seq !== replySeq) return
+      const segment = segments[index]
+      const hold = Math.max(4200, Math.min(11000, segment.length * 170))
+      say(segment, hold, memeShown && index === 0)
+      if (index < segments.length - 1) {
+        replyTimer = setTimeout(() => step(index + 1), hold - 350)
+      }
+    }
+    step(0)
+  }
+
+  if (typeof pet.onReply === 'function') {
+    pet.onReply((reply) => {
+      if (!reply || !reply.ok) {
+        say('唔…' + String((reply && reply.error) || '没说出来').slice(0, 40), 4000)
+        return
+      }
+      let memeShown = false
+      if (reply.meme) {
+        const image = document.getElementById('bubbleMeme')
+        image.src = '../memes/' + encodeURIComponent(String(reply.meme).split(/[\\/]/).pop())
+        image.classList.add('show')
+        memeShown = true
+      }
+      playReply(reply.text, memeShown)
+      playOnce(Math.random() < 0.5 ? 'click' : 'play')
+    })
+  }
+  function renderLedger(summary, categories) {
+    const stats = document.getElementById('ledgerStats')
+    if (!summary) { stats.textContent = '账本没响应'; return }
+    stats.textContent = `今日 ¥${Number(summary.todayExpense).toFixed(2)} · 本月 ¥${Number(summary.monthExpense).toFixed(2)} · 剩 ¥${Number(summary.remaining).toFixed(2)}`
+    const select = document.getElementById('ledgerCat')
+    if (select.options.length === 0 && Array.isArray(categories)) {
+      for (const category of categories) {
+        const option = document.createElement('option')
+        option.value = category
+        option.textContent = category
+        select.appendChild(option)
+      }
+    }
+  }
+
+  function loadLedgerPanel() {
+    if (typeof pet.ledger === 'function') pet.ledger({ action: 'summary' })
+  }
+
+  function addLedgerItem() {
+    const amount = Number(document.getElementById('ledgerAmount').value)
+    if (!Number.isFinite(amount) || amount <= 0) { say('金额不对哦', 1200); return }
+    pet.ledger({
+      action: 'add',
+      amount,
+      category: document.getElementById('ledgerCat').value || '其他',
+      note: document.getElementById('ledgerNote').value,
+      type: 'expense',
+    })
+    document.getElementById('ledgerAmount').value = ''
+    document.getElementById('ledgerNote').value = ''
+  }
+
+  if (typeof pet.onLedger === 'function') {
+    pet.onLedger((reply) => {
+      if (!reply || !reply.ok) { say('账本：' + String((reply && reply.error) || '没响应').slice(0, 30), 2600); return }
+      renderLedger(reply.summary, reply.categories)
+      say('记好啦', 1600)
+    })
+  }
+
+  document.getElementById('ledgerAdd').addEventListener('click', (event) => { event.stopPropagation(); addLedgerItem() })
+  function openPanel(which) {
+    chatOpen = which === 'chat'
+    settingsOpen = which === 'settings'
+    ledgerOpen = which === 'ledger'
+    document.getElementById('chatPanel').classList.toggle('show', chatOpen)
+    document.getElementById('settingsPanel').classList.toggle('show', settingsOpen)
+    document.getElementById('ledgerPanel').classList.toggle('show', ledgerOpen)
+    setSolid(true)
+    if (chatOpen) document.getElementById('chatInput').focus()
+    if (settingsOpen) loadSettings()
+    if (ledgerOpen) loadLedgerPanel()
+  }
+
+  function closePanels() {
+    chatOpen = false
+    settingsOpen = false
+    ledgerOpen = false
+    document.getElementById('chatPanel').classList.remove('show')
+    document.getElementById('settingsPanel').classList.remove('show')
+    document.getElementById('ledgerPanel').classList.remove('show')
+  }
+
+  function openMenu(x, y) {
+    const r = body.getBoundingClientRect()
+    const left = Math.min(Math.max(4, x - r.left), Math.max(4, r.width - 192))
+    const top = Math.min(Math.max(4, y - r.top), Math.max(4, r.height - 320))
+    menuEl.style.left = left + 'px'
+    menuEl.style.top = top + 'px'
+    menuEl.classList.add('show')
+    document.getElementById('pinItem').textContent = pinned ? '📌 取消固定' : '📌 固定（点不到她）'
+    document.getElementById('gravityItem').textContent = gravity ? '🌍 重力：开（松手会掉）' : '🌍 重力：关（拖哪停哪）'
+    document.querySelectorAll('#sizeRow .chip').forEach((chip) => chip.classList.toggle('on', Math.abs(Number(chip.dataset.size) - scale) < 0.01))
+    pet.action('menu-open')
+    setSolid(true)
+  }
+
+  function closeMenu() {
+    menuEl.classList.remove('show')
+  }
+
+  window.addEventListener('contextmenu', (event) => {
+    event.preventDefault()
+    if (pinned) return
+    pet.menu()
+  })
+
+  menuEl.addEventListener('click', (event) => {
+    const item = event.target.closest('.item')
+    const chip = event.target.closest('.chip')
+    const anim = event.target.closest('[data-cat]')
+    if (item) {
+      const act = item.dataset.act
+      closeMenu()
+      if (act === 'chat') openPanel('chat')
+      else if (act === 'settings') openPanel('settings')
+      else if (act === 'ledger') openPanel('ledger')
+      else if (act === 'pin') pet.action('pin')
+      else if (act === 'gravity') pet.action('gravity')
+      else if (act === 'open') pet.action('open')
+      else if (act === 'close') pet.action('close')
+      return
+    }
+    if (chip) { pet.action('size', Number(chip.dataset.size)); closeMenu(); return }
+    if (anim) { playCat(anim.dataset.cat === 'random' ? 'play' : anim.dataset.cat); closeMenu(); return }
+  })
+
+  document.addEventListener('click', (event) => {
+    if (menuEl.contains(event.target)) return
+    closeMenu()
+    if (!event.target.closest('.panel')) closePanels()
+  })
+
+  document.getElementById('sendBtn').addEventListener('click', sendChat)
+  document.getElementById('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat() })
+  document.getElementById('saveSettings').addEventListener('click', async (event) => {
+    event.stopPropagation()
+    const timbre = document.getElementById('sTimbre').value
+    playRate = timbre === 'tsundere-loli' ? 1.22 : timbre === 'soft-loli' ? 1.16 : 1
+    chatter = document.getElementById('sChatter').checked
+    try {
+      await pet.api('/api/dsh-Ycp/voice', 'PUT', {
+        enabled: document.getElementById('sVoice').checked,
+        autoSpeak: document.getElementById('sAuto').checked,
+        timbre,
+      })
+      await pet.api('/api/dsh-Ycp/sound', 'PUT', { enabled: document.getElementById('sSound').checked })
+      say('记住啦', 1200)
+    } catch { say('没存上…', 1600) }
+    closePanels()
+  })
+
+  async function loadSettings() {
+    try {
+      const voice = await pet.api('/api/dsh-Ycp/voice')
+      const settingsResp = await pet.api('/api/dsh-Ycp/settings')
+      const v = (voice && voice.data && voice.data.settings) || {}
+      const s = (settingsResp && settingsResp.data && settingsResp.data.settings) || {}
+      settings = { voice: v, settings: s }
+      document.getElementById('sVoice').checked = v.enabled !== false
+      document.getElementById('sAuto').checked = Boolean(v.autoSpeak)
+      document.getElementById('sTimbre').value = v.timbre || 'natural'
+      document.getElementById('sSound').checked = !s.sound || s.sound.enabled !== false
+      document.getElementById('sChatter').checked = chatter
+      playRate = v.timbre === 'tsundere-loli' ? 1.22 : v.timbre === 'soft-loli' ? 1.16 : 1
+    } catch {}
+  }
+
+  async function pollMood() {
+    try {
+      const result = await pet.api('/api/dsh-Ycp/mood')
+      mood = result && result.data && result.data.mood ? result.data.mood : null
+    } catch {}
   }
 
   body.addEventListener('mousedown', (event) => {
-    if (event.button !== 0) return
-    dragging = true
-    moved = 0
-    startedAt = Date.now()
+    if (event.button !== 0 || pinned) return
+    if (event.target.closest('.panel') || menuEl.contains(event.target)) return
+    if (!overCharacter(event)) return
+    dragging = true; moved = 0; startedAt = Date.now()
     samples = [{ x: event.screenX, y: event.screenY, t: performance.now() }]
     body.classList.add('dragging')
     pet.dragStart({ x: event.screenX, y: event.screenY })
@@ -90,54 +501,67 @@
     pet.dragMove({ x: event.screenX, y: event.screenY })
   })
 
-  window.addEventListener('mouseup', (event) => {
+  window.addEventListener('mouseup', () => {
     if (!dragging) return
     dragging = false
     body.classList.remove('dragging')
     const duration = Date.now() - startedAt
     if (moved < 5 && duration < 450) {
-      pet.reaction()
-      playClick()
-      pop()
-      say(lines[Math.floor(Math.random() * lines.length)])
-      pet.dragEnd({ vx: 0, vy: 0 })
+      pet.reaction(); playClick()
+      const moodLabel = mood ? String(mood.label || '') : ''
+      const angry = /烦|气|恼/.test(moodLabel) || (mood && Number(mood.mood) < 35)
+      const happy = mood && Number(mood.mood) >= 70
+      playOnce(happy ? 'play' : 'click')
+      const balance = typeof pet.balance === 'function' ? pet.balance() : null
+      say(balance !== null && balance !== undefined
+        ? `现在还剩 ${Number(balance).toFixed(2)} 元`
+        : angry ? angryLines[Math.floor(Math.random() * angryLines.length)] : happy ? happyLines[Math.floor(Math.random() * happyLines.length)] : lines[Math.floor(Math.random() * lines.length)])
       return
     }
     const recent = samples.slice(-4)
-    let vx = 0
-    let vy = 0
+    let vx = 0, vy = 0
     if (recent.length >= 2) {
-      const first = recent[0]
-      const last = recent[recent.length - 1]
+      const first = recent[0], last = recent[recent.length - 1]
       const dt = Math.max(16, last.t - first.t)
       vx = ((last.x - first.x) / dt) * 16
       vy = ((last.y - first.y) / dt) * 16
     }
     const cap = 28
-    vx = Math.max(-cap, Math.min(cap, vx))
-    vy = Math.max(-cap, Math.min(cap, vy))
-    pet.dragEnd({ vx, vy })
-  })
-
-  window.addEventListener('contextmenu', (event) => {
-    event.preventDefault()
-    pet.menu()
+    pet.dragEnd({ vx: Math.max(-cap, Math.min(cap, vx)), vy: Math.max(-cap, Math.min(cap, vy)) })
   })
 
   pet.onState((value) => {
-    body.classList.remove('swim', 'nap')
-    if (value === 'swim') body.classList.add('swim')
-    if (value === 'nap') body.classList.add('nap')
-    if (value === 'idle') say('醒啦')
+    body.classList.toggle('nap', value === 'nap')
+    playCat(value === 'nap' ? 'sleep' : 'idle')
   })
+  if (pet.onChat) pet.onChat(() => openPanel('chat'))
+  if (pet.onSettings) pet.onSettings(() => openPanel('settings'))
+  if (pet.onLedgerOpen) pet.onLedgerOpen(() => openPanel('ledger'))
+  if (pet.onAnim) pet.onAnim((name) => playCat(name))
+  if (pet.onPinned) pet.onPinned((value) => { pinned = Boolean(value); body.classList.toggle('pinned', pinned); if (pinned) { closePanels(); say('定住啦，托盘里能解开', 2400) } })
+  if (pet.onScale) pet.onScale((value) => { scale = Number(value) || 1 })
+  if (pet.onGravity) pet.onGravity((value) => { gravity = Boolean(value) })
+  if (pet.onMenu) pet.onMenu(() => openMenu(innerWidth / 2, innerHeight / 2))
 
-  // 没人理她的时候，偶尔自己嘀咕一句——比干站着像活的。
-  const idleLines = ['水有点凉…', '今天也没下雨', '有人在吗', '发会儿呆', '肚子有点饿', '屏幕好亮']
+  for (const id of ['sVoice', 'sAuto', 'sTimbre']) { const element = document.getElementById(id); if (element) element.closest('label').style.display = 'none' }
+  loadSettings().then(pollMood)
+  setInterval(pollMood, 30000)
+  playCat('idle')
+
   function scheduleIdle() {
-    const delay = 45000 + Math.random() * 75000
-    setTimeout(() => {
-      if (!dragging && !body.classList.contains('nap') && !bubble.classList.contains('show')) {
-        say(idleLines[Math.floor(Math.random() * idleLines.length)])
+    const delay = 22000 + Math.random() * 40000
+    setTimeout(async () => {
+      if (!dragging && !body.classList.contains('nap') && !bubble.classList.contains('show') && !chatOpen && !settingsOpen && !menuEl.classList.contains('show')) {
+        let cat = ['idle', 'play', 'work', 'eat'][Math.floor(Math.random() * 4)]
+        if (mood) {
+          if (Number(mood.energy) < 25) cat = 'sleep'
+          else if (Number(mood.mood) >= 70) cat = 'play'
+          else if (Number(mood.mood) < 35) cat = 'click'
+        }
+        if (Math.random() < 0.5) playCat(cat)
+        const line = lines[Math.floor(Math.random() * lines.length)]
+        say(line)
+        /* 语音暂停：只用气泡和表情包说话 */
       }
       scheduleIdle()
     }, delay)

@@ -47,6 +47,7 @@ export function defaultMood(now = new Date()) {
     updatedAt: now.getTime(),
     lastSayAt: null,
     stats: { said: 0, proactive: 0, web: 0 },
+    events: [],
   }
 }
 
@@ -67,6 +68,12 @@ function normalize(raw, now) {
     }
   }
   if (typeof raw.date === 'string') out.date = raw.date
+  if (Array.isArray(raw.events)) {
+    out.events = raw.events
+      .filter((item) => item && typeof item.kind === 'string')
+      .slice(-20)
+      .map((item) => ({ kind: String(item.kind).slice(0, 24), note: String(item.note || '').slice(0, 60), at: Number(item.at) || Date.now() }))
+  }
   return out
 }
 
@@ -77,17 +84,23 @@ export function decay(state, now = new Date(), schedule) {
   if (minutes < 1) return next
   const hours = Math.min(minutes, 24 * 60) / 60
   const asleep = Boolean(schedule && isAsleep(schedule, now).asleep)
+  const satiety = 100 - next.hunger
+  const energyFactor = satiety >= 70 ? 1.25 : satiety <= 30 ? 0.6 : 1
+  const moodFactor = satiety >= 70 ? 1.15 : satiety <= 30 ? 0.55 : 1
 
   if (asleep) {
-    next.energy = clamp(next.energy + PER_HOUR.asleep.energy * hours)
+    next.energy = clamp(next.energy + PER_HOUR.asleep.energy * hours * energyFactor)
     next.hunger = clamp(next.hunger + PER_HOUR.asleep.hunger * hours)
-    next.mood = clamp(next.mood + PER_HOUR.asleep.moodGain * hours)
+    next.mood = clamp(next.mood + PER_HOUR.asleep.moodGain * hours * moodFactor)
   } else {
-    next.energy = clamp(next.energy + PER_HOUR.awake.energy * hours)
+    next.energy = clamp(next.energy + PER_HOUR.awake.energy * hours * energyFactor)
     next.hunger = clamp(next.hunger + PER_HOUR.awake.hunger * hours)
     // 清醒时心情往 50 漂：高了落一点，低了涨一点。
-    const drift = PER_HOUR.awake.moodDrift * hours
+    const drift = PER_HOUR.awake.moodDrift * hours * moodFactor
     next.mood = clamp(next.mood > 50 ? next.mood - drift : next.mood + drift)
+    // 长时间没人理：她自己歇着慢慢回体力；冷落太久心情会掉。
+    if (hours >= 6) next.energy = clamp(next.energy + 2 * hours)
+    if (hours >= 12) next.mood = clamp(next.mood - 0.8 * (hours - 12))
   }
 
   // 跨天：只重置统计
@@ -159,22 +172,77 @@ export function recordWeb(now = new Date(), schedule) {
   return next
 }
 
+/** 发生了一件事：被骂、吵架输了、被举报、被夸……直接影响心情，记进最近事件。 */
+export const EVENT_EFFECTS = {
+  praised: { mood: 6, energy: 1 },
+  compliment: { mood: 5 },
+  scolded: { mood: -8, energy: -2 },
+  argument_lost: { mood: -10, energy: -3 },
+  reported: { mood: -12, energy: -2 },
+  ignored: { mood: -4 },
+  forced: { mood: -2 },
+  error: { mood: -3 },
+  success: { mood: 4 },
+}
+
+export function recordEvent(kind, note = '', now = new Date(), schedule) {
+  const effect = EVENT_EFFECTS[kind] || { mood: -2 }
+  const state = loadMood(now, schedule)
+  const next = touch(state, now)
+  next.mood = clamp(next.mood + (effect.mood || 0))
+  next.energy = clamp(next.energy + (effect.energy || 0))
+  next.events = [...(next.events || []), { kind: String(kind).slice(0, 24), note: String(note).slice(0, 60), at: now.getTime() }].slice(-20)
+  saveMood(next)
+  return moodSummary(next)
+}
+
+/** 做了一件消耗体力的事：上网/发帖/玩耍/社交…… */
+const ACTIVITY_COST = { web: 1, browse: 1, post: 3, play: 2, social: 2, work: 3 }
+
+export function recordActivity(kind = 'web', now = new Date(), schedule) {
+  const state = loadMood(now, schedule)
+  const next = touch(state, now)
+  next.energy = clamp(next.energy - (ACTIVITY_COST[kind] || 1))
+  next.hunger = clamp(next.hunger + 1)
+  next.mood = clamp(next.mood + 1)
+  if (kind === 'web' || kind === 'browse') next.stats.web += 1
+  saveMood(next)
+  return next
+}
+
 /** 面板/接口用的一份摘要。 */
 export function moodSummary(state) {
   const energy = Math.round(state.energy)
   const mood = Math.round(state.mood)
   const hunger = Math.round(state.hunger)
+  const satiety = 100 - hunger
   let label = '还行'
   if (energy <= 20) label = '快没电了'
   else if (hunger >= 80) label = '饿得慌'
   else if (mood <= 30) label = '不太高兴'
   else if (mood >= 80 && energy >= 60) label = '心情不错'
+
+  // 表情包概率：体力高、心情好、吃饱了更爱发；心情差明显收敛。
+  let memeChance = 0.18 + energy / 500 + mood / 500 + (satiety - 50) / 600
+  if (mood < 35) memeChance = Math.min(memeChance, 0.1)
+  if (energy < 25) memeChance *= 0.5
+  memeChance = Math.max(0.05, Math.min(0.65, memeChance))
+
+  // 主动倾向：体力占一半，心情三成，饱食两成。
+  let tendency = energy / 100 * 0.5 + mood / 100 * 0.3 + satiety / 100 * 0.2
+  if (mood < 25) tendency *= 0.5
+  if (energy < 20) tendency *= 0.4
+
   return {
     energy,
     mood,
     hunger,
+    satiety,
     label,
+    memeChance: Math.round(memeChance * 100) / 100,
+    tendency: Math.round(tendency * 100) / 100,
     stats: { ...state.stats },
+    events: Array.isArray(state.events) ? state.events.slice(-5) : [],
     lastSayAt: state.lastSayAt ?? null,
     updatedAt: state.updatedAt,
   }

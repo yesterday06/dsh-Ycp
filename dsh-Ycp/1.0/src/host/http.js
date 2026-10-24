@@ -14,11 +14,11 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { appendLog, homePaths, homeSummary, loadPersona, loadSettings, savePersona, saveSettings, DEFAULT_PERSONA } from './kernel/paths.js'
+import { appendLog, homePaths, homeSummary, loadPersonaBase, loadSettings, savePersona, saveSettings, DEFAULT_PERSONA } from './kernel/paths.js'
 import { DEFAULT_SAMPLE } from './appearance/voice.js'
 import { soundDir, soundStatus } from './appearance/sound.js'
 import { appendDiary, deleteCard, isLayer, LAYERS, listAll, readCard, todayDiary, writeCard } from './organs/memory.js'
-import { todaySummary } from './organs/mood.js'
+import { recordActivity, recordEvent, todaySummary } from './organs/mood.js'
 import { listForPanel, markRead, runOnce } from './organs/proactive.js'
 import { search } from './organs/search.js'
 import { describeStatus, loadSchedule, saveSchedule } from './organs/schedule.js'
@@ -71,15 +71,15 @@ function readBody(req) {
   })
 }
 
-export function createHttpApi({ version, ctx, registry, browser, desktop, autonomy, pet, voice, balance }) {
-  const sayService = createSayService(ctx)
+export function createHttpApi({ version, ctx, registry, browser, desktop, autonomy, pet, voice, balance, diary, ledger, sayService: injectedSay }) {
+  const sayService = injectedSay || createSayService(ctx)
   const tools = registry ?? null
 
   /** 面板要的整份状态。 */
   function panelState() {
     const paths = homePaths()
     const summary = homeSummary()
-    const persona = loadPersona()
+    const persona = loadPersonaBase()
     const settings = loadSettings()
     const schedule = loadSchedule()
     const mood = todaySummary(new Date(), schedule)
@@ -155,7 +155,7 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
         path: '/api/dsh-Ycp/persona',
         handler: handlerFor(async (req, res) => {
           if (req.method === 'GET') {
-            const text = loadPersona()
+            const text = loadPersonaBase()
             return sendJson(res, 200, { ok: true, content: text, chars: text.length, default: DEFAULT_PERSONA })
           }
           if (!writeGate(req, res)) return
@@ -232,9 +232,18 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
         kind: 'exact',
         path: '/api/dsh-Ycp/mood',
         handler: handlerFor(async (req, res) => {
-          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
-          const schedule = loadSchedule()
-          sendJson(res, 200, { ok: true, mood: todaySummary(new Date(), schedule) })
+          if (req.method === 'GET') {
+            const schedule = loadSchedule()
+            return sendJson(res, 200, { ok: true, mood: todaySummary(new Date(), schedule) })
+          }
+          if (req.method === 'POST') {
+            if (!writeGate(req, res)) return
+            const body = await readBody(req)
+            const schedule = loadSchedule()
+            const summary = recordEvent(String(body?.kind || 'error'), String(body?.note || ''), new Date(), schedule)
+            return sendJson(res, 200, { ok: true, mood: summary })
+          }
+          return sendJson(res, 405, { ok: false, error: '不支持的请求' })
         }),
       },
       {
@@ -248,6 +257,9 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           if (!writeGate(req, res)) return
           const body = await readBody(req)
           const result = saveSchedule(body)
+          if (result.ok && loadSettings().autonomy?.schedule === false) {
+            try { recordEvent('forced', '主人强制改了作息') } catch { /* 心情记不上不影响保存 */ }
+          }
           sendJson(res, result.ok ? 200 : 400, {
             ...result,
             ...(result.ok ? { status: describeStatus(result.schedule) } : {}),
@@ -304,6 +316,14 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           const id = String(body?.id ?? '').trim()
           if (!id) return sendJson(res, 400, { ok: false, error: '缺少工具 id' })
           const result = await tools.invoke(id, body?.args ?? {})
+          if (result?.ok) {
+            try {
+              if (/web|browser|search|fetch|bili|site|qq|post|publish|comment|dynamic|send|play/i.test(id)) {
+                const kind = /post|publish|comment|dynamic|send/i.test(id) ? 'post' : /play|game/i.test(id) ? 'play' : 'web'
+                recordActivity(kind, new Date(), loadSchedule())
+              }
+            } catch { /* 活动记不上不影响工具 */ }
+          }
           sendJson(res, 200, result)
         }),
       },
@@ -477,14 +497,14 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           }
           const url = new URL(req.url || '/', 'http://x')
           const name = decodeURIComponent(url.pathname.split('/').pop() || '')
-          if (!/^voice-[0-9T-]+\.wav$/i.test(name) || basename(name) !== name) {
+          if (!/^voice-[0-9T-]+\.(wav|mp3)$/i.test(name) || basename(name) !== name) {
             return sendJson(res, 404, { ok: false, error: '没有这个语音' })
           }
           const file = join(homePaths().root, '状态', '语音', name)
           if (!existsSync(file)) return sendJson(res, 404, { ok: false, error: '语音文件不在了' })
           const data = readFileSync(file)
           res.writeHead(200, {
-            'content-type': 'audio/wav',
+            'content-type': name.toLowerCase().endsWith('.mp3') ? 'audio/mpeg' : 'audio/wav',
             'content-length': data.length,
             'cache-control': 'no-store',
           })
@@ -529,6 +549,45 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
       },
       {
         kind: 'exact',
+        path: '/api/dsh-Ycp/ledger',
+        handler: handlerFor(async (req, res) => {
+          if (!ledger) return sendJson(res, 503, { ok: false, error: '账本没挂上' })
+          if (req.method === 'GET') {
+            return sendJson(res, 200, { ok: true, summary: ledger.summary(), categories: ledger.categories })
+          }
+          if (req.method === 'POST' || req.method === 'PUT') {
+            if (!writeGate(req, res)) return
+            const body = await readBody(req)
+            try {
+              if (body?.budget !== undefined) {
+                const budget = ledger.setBudget(body.budget)
+                return sendJson(res, 200, { ok: true, budget, summary: ledger.summary() })
+              }
+              if (body?.daily !== undefined || body?.monthly !== undefined) {
+                const budget = ledger.setTokenBudget({ daily: body.daily, monthly: body.monthly })
+                return sendJson(res, 200, { ok: true, budget, summary: ledger.summary() })
+              }
+              if (body?.remove) {
+                const removed = ledger.remove(body.remove)
+                return sendJson(res, removed ? 200 : 404, { ok: removed, summary: ledger.summary() })
+              }
+              if (body?.tokens !== undefined) {
+                const entry = body.type === 'income'
+                  ? ledger.addTokenIncome({ tokens: body.tokens, note: body.note })
+                  : ledger.addToken({ tokens: body.tokens, kind: body.kind, note: body.note })
+                return sendJson(res, 200, { ok: true, entry, summary: ledger.summary() })
+              }
+              const entry = ledger.add(body)
+              return sendJson(res, 200, { ok: true, entry, summary: ledger.summary() })
+            } catch (error) {
+              return sendJson(res, 400, { ok: false, error: String(error?.message ?? error) })
+            }
+          }
+          return sendJson(res, 405, { ok: false, error: '不支持的请求' })
+        }),
+      },
+      {
+        kind: 'exact',
         path: '/api/dsh-Ycp/balance',
         handler: handlerFor(async (req, res) => {
           if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
@@ -536,6 +595,24 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           const url = new URL(req.url || '/', 'http://x')
           const data = await balance.status({ force: url.searchParams.get('refresh') === '1' })
           sendJson(res, 200, data)
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-Ycp/character.png',
+        handler: handlerFor(async (req, res) => {
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            return sendJson(res, 405, { ok: false, error: 'GET only' })
+          }
+          const file = fileURLToPath(new URL('../../assets/character/character.png', import.meta.url))
+          if (!existsSync(file)) return sendJson(res, 404, { ok: false, error: '形象文件不见了' })
+          const data = readFileSync(file)
+          res.writeHead(200, {
+            'content-type': 'image/png',
+            'content-length': data.length,
+            'cache-control': 'no-cache',
+          })
+          res.end(req.method === 'HEAD' ? undefined : data)
         }),
       },
       {
@@ -558,11 +635,31 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
       },
       {
         kind: 'exact',
+        path: '/api/dsh-Ycp/diary/auto',
+        handler: handlerFor(async (req, res) => {
+          if (!writeGate(req, res)) return
+          if (!diary) return sendJson(res, 503, { ok: false, error: '日记没挂上' })
+          const body = await readBody(req)
+          const result = await diary.write({ text: body?.text })
+          sendJson(res, result.ok ? 200 : 500, result)
+        }),
+      },
+      {
+        kind: 'exact',
         path: '/api/dsh-Ycp/say',
         handler: handlerFor(async (req, res) => {
           if (!writeGate(req, res)) return
           const body = await readBody(req)
           const result = await sayService.say(body)
+          if (result.ok && ledger && typeof ledger.addToken === 'function') {
+            try {
+              ledger.addToken({
+                tokens: Math.ceil(((body?.text || '').length + (result.text || '').length) / 1.5),
+                kind: 'chat',
+                note: '面板聊天',
+              })
+            } catch { /* 记不上不影响说话 */ }
+          }
           // 说话成功顺手合成一条语音条；合成失败不影响文字回复。
           if (result.ok && voice && loadSettings().voice?.enabled) {
             try {

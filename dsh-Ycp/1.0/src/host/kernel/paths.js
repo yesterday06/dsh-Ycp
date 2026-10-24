@@ -8,7 +8,7 @@
  *
  * 不写死任何本机绝对路径；所有路径由 DSH_HOME / DSH_YCP_HOME 推导。
  */
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 
 export const BACKUP_KEEP = 20
@@ -70,7 +70,10 @@ export const DEFAULT_SETTINGS = {
   proactive: { enabled: false, everyMin: 60, dailyLimit: 10 },
   permissions: { webSearch: true, webFetch: true, memoryWrite: true, memoryRead: true },
   appearance: { petEnabled: false },
-  voice: { enabled: true, name: '', rate: 0, pitch: 0, volume: 100, autoSpeak: false },
+  model: { baseUrl: '', apiKey: '', model: '' },
+  signature: '',
+  autonomy: { schedule: true, proactive: true },
+  voice: { enabled: false, name: '', rate: 0, pitch: 0, volume: 100, autoSpeak: false, neuralUrl: '', neuralModel: 'tts-1', style: '', timbre: 'natural' },
   sound: { enabled: true, volume: 40 },
   balance: { enabled: true, warnBelow: 10 },
 }
@@ -111,14 +114,51 @@ export function dshHome() {
   return process.env.DSH_HOME || join(homedir(), '.dsh')
 }
 
-/** 插件数据根：默认 <DSH_HOME>/Ycp；DSH_YCP_HOME 可整体改（测试/多开）。 */
+/** 插件数据根：默认 D:\OpenAI\dsh-Ycp；DSH_YCP_HOME 可整体改（测试/多开）。 */
 export function dataRoot() {
   const env = String(process.env.DSH_YCP_HOME || '').trim()
-  return env ? resolve(env) : join(dshHome(), 'Ycp')
+  if (env) return resolve(env)
+  if (process.platform === 'win32') return 'D:\\OpenAI\\dsh-Ycp'
+  return join(homedir(), 'dsh-Ycp')
+}
+
+/**
+ * 人物名（决定家目录叫啥）。
+ * 顺序：YCP_CHARACTER → 数据根下 人物名.txt → 默认「大肥鱼」。
+ * 想改名就改 人物名.txt（或让它自己改），下次启动换目录。
+ */
+export function characterName() {
+  const env = String(process.env.YCP_CHARACTER || '').trim()
+  if (env) return env
+  try {
+    const name = readFileSync(join(dataRoot(), '人物名.txt'), 'utf8').trim()
+    if (name) return name
+  } catch { /* 还没起名字 */ }
+  return INSTANCE_NAME
 }
 
 export function homeDir() {
-  return join(dataRoot(), INSTANCE_NAME)
+  return join(dataRoot(), characterName())
+}
+
+/**
+ * 旧版家（<DSH_HOME>/Ycp/大肥鱼）搬到新位置。
+ * 只在新家不存在时搬；旧家留着当备份，不删。
+ */
+function migrateLegacy() {
+  const legacy = join(dshHome(), 'Ycp', INSTANCE_NAME)
+  const target = homeDir()
+  if (!existsSync(legacy) || existsSync(target)) return null
+  try {
+    mkdirSync(target, { recursive: true })
+    cpSync(legacy, target, { recursive: true })
+    const legacyLogs = join(dshHome(), 'Ycp', 'logs')
+    const newLogs = join(target, 'logs')
+    if (existsSync(legacyLogs) && !existsSync(newLogs)) cpSync(legacyLogs, newLogs, { recursive: true })
+    return legacy
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -132,7 +172,8 @@ export function homePaths() {
     root,
     settings: join(root, 'settings.json'),
     persona: join(root, '人设', '人设.md'),
-    logs: join(dataRoot(), 'logs'),
+    growth: join(root, '人设', '成长.md'),
+    logs: join(root, 'logs'),
     backups: join(root, '状态', 'backups'),
   }
 }
@@ -143,9 +184,11 @@ export function homePaths() {
  * @returns {{...paths, created: string[], files: string[]}}
  */
 export function ensureHome() {
+  const migrated = migrateLegacy()
   const paths = homePaths()
   const created = []
   const files = []
+  if (migrated) created.push(`${paths.root}（从 ${migrated} 搬来）`)
 
   const dirs = [paths.root, paths.logs, ...SUBDIRS.map((sub) => join(paths.root, sub))]
   for (const dir of dirs) {
@@ -262,7 +305,7 @@ export function fileInfo(file) {
 /** 行动日志：<数据根>/logs/YYYY-MM-DD.log，一行一条。 */
 export function appendLog(message, extra) {
   try {
-    const dir = join(dataRoot(), 'logs')
+    const dir = homePaths().logs
     mkdirSync(dir, { recursive: true })
     const d = new Date()
     const day = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
@@ -303,6 +346,9 @@ export function loadSettings() {
   out.voice = normalizeVoice(raw.voice)
   out.sound = normalizeSound(raw.sound)
   out.balance = normalizeBalance(raw.balance)
+  out.model = normalizeModel(raw.model)
+  out.autonomy = normalizeAutonomy(raw.autonomy)
+  if (typeof raw.signature === 'string') out.signature = raw.signature.slice(0, 120)
   return out
 }
 
@@ -318,6 +364,23 @@ export function normalizeSound(input) {
 }
 
 /** 余额设置：开关 + 低余额阈值。 */
+export function normalizeModel(input) {
+  const out = { ...DEFAULT_SETTINGS.model }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return out
+  if (typeof input.baseUrl === 'string') out.baseUrl = input.baseUrl.trim().slice(0, 300)
+  if (typeof input.apiKey === 'string') out.apiKey = input.apiKey.trim().slice(0, 300)
+  if (typeof input.model === 'string') out.model = input.model.trim().slice(0, 120)
+  return out
+}
+
+export function normalizeAutonomy(input) {
+  const out = { ...DEFAULT_SETTINGS.autonomy }
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return out
+  if (typeof input.schedule === 'boolean') out.schedule = input.schedule
+  if (typeof input.proactive === 'boolean') out.proactive = input.proactive
+  return out
+}
+
 export function normalizeBalance(input) {
   const out = { ...DEFAULT_SETTINGS.balance }
   if (!input || typeof input !== 'object' || Array.isArray(input)) return out
@@ -335,6 +398,10 @@ export function normalizeVoice(input) {
   if (typeof input.enabled === 'boolean') out.enabled = input.enabled
   if (typeof input.autoSpeak === 'boolean') out.autoSpeak = input.autoSpeak
   if (typeof input.name === 'string') out.name = input.name.slice(0, 100)
+  if (typeof input.neuralUrl === 'string') out.neuralUrl = input.neuralUrl.slice(0, 300)
+  if (typeof input.neuralModel === 'string') out.neuralModel = input.neuralModel.slice(0, 80)
+  if (typeof input.style === 'string') out.style = input.style.slice(0, 40)
+  if (typeof input.timbre === 'string') out.timbre = input.timbre.slice(0, 40)
   for (const [key, lo, hi, fallback] of [['rate', -10, 10, 0], ['pitch', -30, 30, 0], ['volume', 0, 100, 100]]) {
     const value = input[key]
     if (typeof value === 'number' && Number.isFinite(value)) out[key] = Math.min(hi, Math.max(lo, Math.round(value)))
@@ -499,6 +566,9 @@ export function saveSettings(patch) {
       if (key in source && typeof source[key] !== 'boolean') return { ok: false, error: `voice.${key} 必须是 true / false` }
     }
     if ('name' in source && typeof source.name !== 'string') return { ok: false, error: 'voice.name 必须是字符串' }
+    for (const key of ['neuralUrl', 'neuralModel', 'style', 'timbre']) {
+      if (key in source && typeof source[key] !== 'string') return { ok: false, error: `voice.${key} 必须是字符串` }
+    }
     for (const [key, lo, hi] of [['rate', -10, 10], ['pitch', -30, 30], ['volume', 0, 100]]) {
       if (!(key in source)) continue
       const value = source[key]
@@ -538,16 +608,63 @@ export function saveSettings(patch) {
     }
     next.balance = { ...next.balance, ...source, warnBelow: Number(source.warnBelow ?? next.balance.warnBelow) }
   }
+  if ('model' in patch) {
+    const source = patch.model
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return { ok: false, error: 'model 必须是对象' }
+    const baseUrl = String(source.baseUrl ?? next.model.baseUrl ?? '').trim()
+    if (baseUrl && !/^https?:\/\//i.test(baseUrl)) return { ok: false, error: 'model.baseUrl 要以 http(s):// 开头' }
+    next.model = normalizeModel({ ...next.model, ...source })
+  }
+  if ('signature' in patch) {
+    if (typeof patch.signature !== 'string') return { ok: false, error: 'signature 必须是字符串' }
+    next.signature = patch.signature.slice(0, 120)
+  }
+  if ('autonomy' in patch) {
+    const source = patch.autonomy
+    if (!source || typeof source !== 'object' || Array.isArray(source)) return { ok: false, error: 'autonomy 必须是对象' }
+    next.autonomy = normalizeAutonomy({ ...next.autonomy, ...source })
+  }
   const paths = homePaths()
   const backup = writeWithBackup(paths.settings, JSON.stringify({ ...next, updatedAt: new Date().toISOString() }, null, 2) + '\n')
   appendLog('保存设置', { name: next.name, enabled: next.enabled, backup: backup ? basename(backup) : null })
   return { ok: true, settings: next, backup }
 }
 
-/** 读人设：文件不在时给默认文本（但不落盘，交给 ensureHome 建）。 */
+/** 读人设：文件不在时给默认文本（但不落盘，交给 ensureHome 建）。成长记录会并进来。 */
+export function loadPersonaBase() {
+  return readText(homePaths().persona) ?? DEFAULT_PERSONA
+}
+
 export function loadPersona() {
-  const text = readText(homePaths().persona)
-  return text === null ? DEFAULT_PERSONA : text
+  const paths = homePaths()
+  const base = readText(paths.persona) ?? DEFAULT_PERSONA
+  let growth = null
+  try {
+    growth = readText(paths.growth)
+  } catch {
+    growth = null
+  }
+  if (!growth || !growth.trim()) return base
+  return `${base}\n\n---\n\n# 我的成长记录（已经长进我身上的事）\n\n${growth.trim().slice(-8000)}`
+}
+
+/** 把一段新的成长记录追加到 成长.md（她自己的记忆提炼）。 */
+export function appendGrowth(text) {
+  const value = String(text ?? '').trim()
+  if (!value) return { ok: false, error: '成长记录不能是空的' }
+  const paths = homePaths()
+  try {
+    mkdirSync(dirname(paths.growth), { recursive: true })
+    const today = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const stamp = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())} ${pad(today.getHours())}:${pad(today.getMinutes())}`
+    const line = `\n- ${stamp} ${value.slice(0, 300)}\n`
+    appendFileSync(paths.growth, line, 'utf8')
+    appendLog('成长记录 +1', { chars: value.length })
+    return { ok: true, growth: line.trim(), file: paths.growth }
+  } catch (error) {
+    return { ok: false, error: String(error?.message ?? error) }
+  }
 }
 
 /**

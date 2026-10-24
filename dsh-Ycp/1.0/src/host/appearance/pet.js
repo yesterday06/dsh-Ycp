@@ -40,7 +40,7 @@ export function createPet({ getSettings = () => ({}), url = process.env.DSH_WEB_
 
   function paths() {
     const dir = join(homePaths().root, '状态', '宠物')
-    return { dir, status: join(dir, '窗口.json') }
+    return { dir, status: join(dir, '窗口.json'), config: join(dir, '窗口配置.json') }
   }
 
   function readStatus() {
@@ -90,7 +90,8 @@ export function createPet({ getSettings = () => ({}), url = process.env.DSH_WEB_
     delete env.ELECTRON_RUN_AS_NODE
     env.YCP_CLICK_URL = clickSound && existsSync(clickSound) ? pathToFileURL(clickSound).href : ''
     env.YCP_SOUND_VOLUME = String(Math.max(0, Math.min(100, Number(soundVolume) || 0)))
-    const args = [PET_APP_DIR, '--ycp-state', statusFile, '--ycp-url', url]
+    env.YCP_BALANCE_FILE = join(homePaths().root, '状态', '余额.json')
+    const args = [PET_APP_DIR, '--ycp-state', statusFile, '--ycp-config', paths().config, '--ycp-url', url]
     child = spawn(electron.path, args, {
       cwd: PET_APP_DIR,
       env,

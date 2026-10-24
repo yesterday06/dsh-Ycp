@@ -17,37 +17,38 @@ window.__ModuleLoader__.load({
     const API = '/api/dsh-Ycp'
 
     const CSS = `
-      .ycp-panel { height:100%; overflow:auto; padding:26px 24px 44px; color:var(--dsw-alias-label-primary); background:var(--dsw-alias-bg-base); font-size:13px; line-height:1.6; }
-      .ycp-wrap { max-width:780px; margin:0 auto; }
+      .ycp-panel { height:100%; overflow:auto; padding:32px 28px 56px; color:var(--dsw-alias-label-primary); background:radial-gradient(900px 420px at 12% -12%, rgba(96,196,235,.16), transparent 62%), var(--dsw-alias-bg-base); font-size:13px; line-height:1.65; }
+      .ycp-wrap { max-width:820px; margin:0 auto; }
       .ycp-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
-      .ycp-title { font-size:20px; font-weight:650; letter-spacing:.3px; }
-      .ycp-sub { color:var(--dsw-alias-label-secondary); font-size:12px; margin-top:3px; }
-      .ycp-pill { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--dsw-alias-state-success-primary); color:var(--dsw-alias-state-success-primary); border-radius:999px; padding:3px 10px; font-size:11px; }
+      .ycp-title { font-size:26px; font-weight:700; letter-spacing:-.3px; }
+      .ycp-sub { color:var(--dsw-alias-label-secondary); font-size:12px; margin-top:4px; }
+      .ycp-pill { flex-shrink:0; display:inline-flex; align-items:center; gap:6px; border:1px solid var(--dsw-alias-state-success-primary); color:var(--dsw-alias-state-success-primary); border-radius:999px; padding:4px 11px; font-size:11px; background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 8%, transparent); }
       .ycp-pill.bad { border-color:var(--dsw-alias-state-error-primary); color:var(--dsw-alias-state-error-primary); }
       .ycp-pill.wait { border-color:var(--dsw-alias-border-l2); color:var(--dsw-alias-label-secondary); }
       .ycp-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
-      .ycp-status { display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin:16px 0 14px; padding:10px 14px; border:1px solid var(--dsw-alias-border-l1); border-radius:10px; background:var(--dsw-alias-bg-layer-1); font-size:12px; color:var(--dsw-alias-label-secondary); }
+      .ycp-status { display:flex; gap:18px; flex-wrap:wrap; align-items:center; margin:16px 0 14px; padding:11px 16px; border-radius:14px; background:var(--dsw-alias-bg-layer-1); box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1), 0 8px 24px rgba(20,70,110,.05); font-size:12px; color:var(--dsw-alias-label-secondary); }
       .ycp-status b { color:var(--dsw-alias-label-primary); font-weight:600; }
-      .ycp-section { border:1px solid var(--dsw-alias-border-l1); border-radius:16px; background:var(--dsw-alias-bg-layer-1); padding:16px 18px; margin-bottom:12px; box-shadow:0 6px 18px rgba(22,86,128,.05); transition:border-color .2s, box-shadow .2s; }
-      .ycp-section:hover { border-color:rgba(96,196,235,.45); box-shadow:0 8px 22px rgba(22,86,128,.09); }
-      .ycp-section-title { font-weight:650; display:flex; align-items:center; gap:8px; }
-      .ycp-section-title::before { content:''; width:3px; height:13px; border-radius:2px; background:linear-gradient(#6fd2f3,#2a7fb6); }
-      .ycp-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:9px; }
-      .ycp-section-title { font-size:12px; font-weight:650; letter-spacing:.4px; color:var(--dsw-alias-label-secondary); text-transform:uppercase; }
+      .ycp-section { border:0; border-radius:18px; background:var(--dsw-alias-bg-layer-1); padding:18px 20px; margin-bottom:14px; box-shadow:inset 0 0 0 1px var(--dsw-alias-border-l1), 0 10px 30px rgba(20,70,110,.06); transition:box-shadow .2s, transform .2s; }
+      .ycp-section:hover { box-shadow:inset 0 0 0 1px rgba(96,196,235,.38), 0 14px 34px rgba(20,70,110,.10); }
+      .ycp-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:11px; }
+      .ycp-section-title { font-size:13px; font-weight:700; letter-spacing:0; color:var(--dsw-alias-label-primary); display:flex; align-items:center; gap:8px; }
+      .ycp-section-title::before { content:''; width:3px; height:14px; border-radius:2px; background:linear-gradient(#6fd2f3,#2a7fb6); }
       .ycp-count { font-size:11px; color:var(--dsw-alias-label-secondary); }
       .ycp-textarea { width:100%; min-height:190px; resize:vertical; box-sizing:border-box; border:1px solid var(--dsw-alias-border-l2); border-radius:8px; background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-primary); padding:10px 12px; font-size:13px; line-height:1.7; font-family:inherit; }
       .ycp-textarea:focus { outline:none; border-color:var(--dsw-alias-brand-primary); }
       .ycp-actions { display:flex; gap:8px; margin-top:9px; flex-wrap:wrap; }
-      .ycp-btn { border:1px solid var(--dsw-alias-border-l2); background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-primary); border-radius:7px; padding:6px 14px; font-size:12px; cursor:pointer; }
-      .ycp-btn.primary { background:#247bbf; border-color:#247bbf; color:#fff; font-weight:600; }
+      .ycp-btn { border:1px solid var(--dsw-alias-border-l2); background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-primary); border-radius:9px; padding:7px 15px; font-size:12px; cursor:pointer; transition:transform .15s, box-shadow .15s, border-color .15s; }
+      .ycp-btn:hover:not([disabled]) { border-color:rgba(96,196,235,.7); transform:translateY(-1px); box-shadow:0 6px 14px rgba(20,70,110,.08); }
+      .ycp-btn.primary { background:linear-gradient(135deg,#3aa6e0,#247bbf); border-color:transparent; color:#fff; font-weight:600; box-shadow:0 8px 18px rgba(36,123,191,.24); }
       .ycp-btn[disabled] { opacity:.55; cursor:not-allowed; }
       .ycp-msg { font-size:12px; margin-top:8px; }
       .ycp-msg.ok { color:var(--dsw-alias-state-success-primary); }
       .ycp-msg.bad { color:var(--dsw-alias-state-error-primary); white-space:pre-wrap; }
       .ycp-say { display:flex; gap:8px; }
-      .ycp-input { flex:1; min-width:0; box-sizing:border-box; border:1px solid var(--dsw-alias-border-l2); border-radius:7px; background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-primary); padding:7px 10px; font-size:13px; }
-      .ycp-input:focus { outline:none; border-color:var(--dsw-alias-brand-primary); }
-      .ycp-bubble { margin-top:10px; border:1px solid var(--dsw-alias-border-l1); border-radius:10px; background:var(--dsw-alias-bg-base); padding:10px 13px; font-size:13px; line-height:1.7; white-space:pre-wrap; }
+      .ycp-input { flex:1; min-width:0; box-sizing:border-box; border:1px solid var(--dsw-alias-border-l2); border-radius:9px; background:var(--dsw-alias-bg-base); color:var(--dsw-alias-label-primary); padding:8px 11px; font-size:13px; }
+      .ycp-input:focus { outline:none; border-color:var(--dsw-alias-brand-primary); box-shadow:0 0 0 3px rgba(58,166,224,.12); }
+      .ycp-input.small { width:100px; flex:none; }
+      .ycp-bubble { margin-top:10px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-base); padding:12px 15px; font-size:13px; line-height:1.75; white-space:pre-wrap; box-shadow:0 6px 16px rgba(20,70,110,.05); }
       .ycp-bubble-name { font-weight:600; margin-right:4px; }
       .ycp-bubble-meta { color:var(--dsw-alias-label-secondary); font-size:11px; margin-top:6px; }
       .ycp-typing { display:flex; align-items:center; gap:5px; }
@@ -93,6 +94,7 @@ window.__ModuleLoader__.load({
       .ycp-bar-fill.energy { background:#3BA3DC; }
       .ycp-bar-fill.mood { background:#E08BB6; }
       .ycp-bar-fill.hunger { background:#E0A050; }
+      .ycp-bar-fill.satiety { background:#5FBF8F; }
       .ycp-bar-value { width:30px; text-align:right; flex-shrink:0; color:var(--dsw-alias-label-secondary); }
       .ycp-stats { display:flex; gap:16px; flex-wrap:wrap; margin-top:9px; font-size:12px; color:var(--dsw-alias-label-secondary); }
       .ycp-stats b { color:var(--dsw-alias-label-primary); font-weight:600; }
@@ -109,9 +111,32 @@ window.__ModuleLoader__.load({
       .ycp-low { color:#d9534f; }
       .ycp-meter { height:6px; border-radius:3px; background:var(--dsw-alias-border-l1); overflow:hidden; margin-top:6px; }
       .ycp-meter i { display:block; height:100%; border-radius:3px; transition:width .5s ease, background .3s; }
+      .ycp-ledger-form { display:grid; grid-template-columns:88px 84px 1fr 74px; gap:8px; margin-top:10px; align-items:center; }
+      .ycp-ledger-form .ycp-input, .ycp-ledger-form .ycp-select { width:100%; min-width:0; }
+      .ycp-ledger-list { margin-top:10px; display:flex; flex-direction:column; gap:5px; }
+      .ycp-ledger-row { display:grid; grid-template-columns:52px 1fr auto 38px; gap:8px; align-items:center; padding:6px 9px; border-radius:10px; background:var(--dsw-alias-bg-layer-1); border:1px solid var(--dsw-alias-border-l1); font-size:12px; }
+      .ycp-ledger-cat { color:var(--dsw-alias-label-secondary); }
+      .ycp-ledger-note { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .ycp-ledger-row .in { color:#2f9e6e; }
+      .ycp-ledger-row .out { color:#c65a4a; }
+      .ycp-ledger-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-top:10px; }
+      .ycp-stat-card { display:flex; flex-direction:column; gap:2px; padding:9px 12px; border-radius:12px; background:var(--dsw-alias-bg-layer-1); border:1px solid var(--dsw-alias-border-l1); }
+      .ycp-stat-card span { font-size:11px; color:var(--dsw-alias-label-secondary); }
+      .ycp-stat-card b { font-size:15px; }
+      .ycp-check { display:inline-flex; align-items:center; gap:6px; font-size:12px; }
+      .ycp-stat-card i { font-style:normal; font-size:11px; color:var(--dsw-alias-label-secondary); }      .ycp-money-card { margin-top:14px; padding-top:12px; border-top:1px dashed var(--dsw-alias-border-l1); }
       .ycp-foot { color:var(--dsw-alias-label-secondary); font-size:11px; margin-top:14px; }
       .ycp-hero { display:flex; align-items:center; gap:18px; margin:18px 0 14px; padding:14px 18px; border:1px solid var(--dsw-alias-border-l1); border-radius:18px; background:linear-gradient(135deg, rgba(96,196,235,.16), rgba(255,255,255,0) 62%), var(--dsw-alias-bg-layer-1); box-shadow:0 10px 26px rgba(22,86,128,.08); }
-      .ycp-portrait { width:112px; height:112px; flex-shrink:0; display:block; border-radius:22px; filter:drop-shadow(0 10px 16px rgba(21,84,124,.22)); animation:ycp-float 4.5s ease-in-out infinite; }
+      .ycp-hero-main { display:flex; flex-direction:column; gap:6px; min-width:0; }
+      .ycp-hero-name { font-size:24px; font-weight:700; letter-spacing:1px; }
+      .ycp-hero-sub { font-size:13px; color:var(--dsw-alias-label-secondary); }
+      .ycp-hero-sign { font-size:13px; color:#2a7fb6; font-style:italic; }
+      .ycp-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:2px; }
+      .ycp-chip { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; font-size:12px; border:1px solid var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-1); }
+      .ycp-chip.energy { border-color:rgba(59,163,220,.45); }
+      .ycp-chip.mood { border-color:rgba(224,139,182,.45); }
+      .ycp-chip.satiety { border-color:rgba(95,191,143,.45); }
+      .ycp-chip b { font-size:13px; }      .ycp-portrait { width:128px; height:128px; flex-shrink:0; display:block; border-radius:22px; filter:drop-shadow(0 10px 16px rgba(21,84,124,.22)); animation:ycp-float 4.5s ease-in-out infinite; }
       @keyframes ycp-float { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-5px) } }
       .ycp-quote { font-size:14px; line-height:1.7; }
       .ycp-quote b { font-weight:600; }
@@ -190,7 +215,7 @@ window.__ModuleLoader__.load({
     function BigFish(props = {}) {
       return h('img', {
         className: props.className || 'ycp-portrait',
-        src: '/api/dsh-Ycp/character.svg',
+        src: '/api/dsh-Ycp/character.png',
         alt: '大肥鱼',
         draggable: false,
       })
@@ -280,6 +305,24 @@ window.__ModuleLoader__.load({
       const [balanceInfo, setBalanceInfo] = React.useState(null)
       const [balanceBusy, setBalanceBusy] = React.useState(false)
       const [balanceMsg, setBalanceMsg] = React.useState('')
+      const [diaryBusy, setDiaryBusy] = React.useState(false)
+      const [diaryMsg, setDiaryMsg] = React.useState('')
+      const [ledger, setLedger] = React.useState(null)
+      const [ledgerBusy, setLedgerBusy] = React.useState(false)
+      const [ledgerMsg, setLedgerMsg] = React.useState('')
+      const [ledgerType, setLedgerType] = React.useState('expense')
+      const [ledgerAmount, setLedgerAmount] = React.useState('')
+      const [ledgerCategory, setLedgerCategory] = React.useState('吃饭')
+      const [ledgerNote, setLedgerNote] = React.useState('')
+      const [moneyAmount, setMoneyAmount] = React.useState('')
+      const [moneyNote, setMoneyNote] = React.useState('')
+      const [moneyType, setMoneyType] = React.useState('expense')
+      const [ledgerTab, setLedgerTab] = React.useState('expense')
+      const [apiForm, setApiForm] = React.useState({ baseUrl: '', apiKey: '', model: '' })
+      const [apiBusy, setApiBusy] = React.useState(false)
+      const [apiMsg, setApiMsg] = React.useState('')
+      const [signature, setSignature] = React.useState('')
+      const [sigMsg, setSigMsg] = React.useState('')
       const lowSoundPlayed = React.useRef(false)
 
       const load = React.useCallback(async () => {
@@ -288,6 +331,8 @@ window.__ModuleLoader__.load({
           setState(data)
           setName(data.settings.name)
           setEnabled(data.settings.enabled)
+          if (data.settings.model) setApiForm({ baseUrl: data.settings.model.baseUrl || '', apiKey: data.settings.model.apiKey || '', model: data.settings.model.model || '' })
+          setSignature(data.settings.signature || '')
           setError('')
         } catch (cause) {
           setError(String((cause && cause.message) || cause))
@@ -392,6 +437,8 @@ window.__ModuleLoader__.load({
         lowSoundPlayed.current = true
         playSound('low')
       }, [balanceInfo])
+
+      React.useEffect(() => { loadLedger() }, [])
 
       const saveSettings = async () => {
         setBusy(true)
@@ -859,8 +906,144 @@ window.__ModuleLoader__.load({
         }
       }
 
-      const refreshBalance = async () => {
-        setBalanceBusy(true)
+      const writeDiary = async () => {
+        setDiaryBusy(true)
+        setDiaryMsg('')
+        try {
+          const result = await call('/diary/auto', { method: 'POST', body: '{}' })
+          setDiaryMsg(`她写完了：${result.chars || 0} 字，存到 ${result.file || '今天的日记'}`)
+          await loadMemory()
+        } catch (cause) {
+          setDiaryMsg(`没写成：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setDiaryBusy(false)
+        }
+      }
+
+      const loadLedger = async () => {
+        try {
+          const data = await call('/ledger')
+          setLedger(data.summary)
+        } catch { /* 账本读取失败不挡别的 */ }
+      }
+
+      const addLedger = async () => {
+        const tokens = Number(ledgerAmount)
+        if (!Number.isFinite(tokens) || tokens <= 0) { setLedgerMsg('先填个大于 0 的 token 数'); return }
+        setLedgerBusy(true)
+        setLedgerMsg('')
+        try {
+          const data = await call('/ledger', { method: 'POST', body: JSON.stringify({ tokens, kind: ledgerCategory, note: ledgerNote }) })
+          setLedger(data.summary)
+          setLedgerAmount('')
+          setLedgerNote('')
+          setLedgerMsg('喂了她一顿')
+        } catch (cause) {
+          setLedgerMsg(`没记上：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setLedgerBusy(false)
+        }
+      }
+
+      const removeLedger = async (id) => {
+        try {
+          const data = await call('/ledger', { method: 'POST', body: JSON.stringify({ remove: id }) })
+          setLedger(data.summary)
+        } catch { /* 删失败就算了 */ }
+      }
+
+      const saveBudget = async (value) => {
+        const amount = Number(value)
+        if (!Number.isFinite(amount) || amount <= 0) return
+        try {
+          const data = await call('/ledger', { method: 'PUT', body: JSON.stringify({ daily: amount }) })
+          setLedger(data.summary)
+        } catch { /* 预算没存上 */ }
+      }
+
+      const addMoney = async () => {
+        const amount = Number(moneyAmount)
+        if (!Number.isFinite(amount) || amount <= 0) { setLedgerMsg('先填个大于 0 的金额'); return }
+        setLedgerBusy(true)
+        setLedgerMsg('')
+        try {
+          const data = await call('/ledger', { method: 'POST', body: JSON.stringify({ amount, type: moneyType, note: moneyNote, category: '其他' }) })
+          setLedger(data.summary)
+          setMoneyAmount('')
+          setMoneyNote('')
+          setLedgerMsg(moneyType === 'income' ? '记了一笔收入' : '记了一笔支出')
+        } catch (cause) {
+          setLedgerMsg(`没记上：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setLedgerBusy(false)
+        }
+      }
+
+      const addTokenIncome = async () => {
+        const tokens = Number(moneyAmount)
+        if (!Number.isFinite(tokens) || tokens <= 0) { setLedgerMsg('先填个大于 0 的 token 数'); return }
+        setLedgerBusy(true)
+        setLedgerMsg('')
+        try {
+          const data = await call('/ledger', { method: 'POST', body: JSON.stringify({ tokens, type: 'income', note: moneyNote }) })
+          setLedger(data.summary)
+          setMoneyAmount('')
+          setMoneyNote('')
+          setLedgerMsg('记了一笔收入')
+        } catch (cause) {
+          setLedgerMsg(`没记上：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setLedgerBusy(false)
+        }
+      }
+
+      const saveMonthlyBudget = async (value) => {
+        const amount = Number(value)
+        if (!Number.isFinite(amount) || amount <= 0) return
+        try {
+          const data = await call('/ledger', { method: 'PUT', body: JSON.stringify({ monthly: amount }) })
+          setLedger(data.summary)
+        } catch { /* 预算没存上 */ }
+      }
+      const saveMoneyBudget = async (value) => {
+        const amount = Number(value)
+        if (!Number.isFinite(amount) || amount <= 0) return
+        try {
+          const data = await call('/ledger', { method: 'PUT', body: JSON.stringify({ budget: amount }) })
+          setLedger(data.summary)
+        } catch { /* 预算没存上 */ }
+      }
+      const saveApi = async () => {
+        setApiBusy(true)
+        setApiMsg('')
+        try {
+          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ model: apiForm }) })
+          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
+          setApiMsg('接口已保存')
+        } catch (cause) {
+          setApiMsg(`没存上：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setApiBusy(false)
+        }
+      }
+
+      const saveSignature = async () => {
+        try {
+          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ signature }) })
+          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
+          setSigMsg('签名已更新')
+        } catch (cause) {
+          setSigMsg(`没存上：${String((cause && cause.message) || cause)}`)
+        }
+      }
+
+      const setAutonomySetting = async (key, value) => {
+        try {
+          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ autonomy: { ...(state?.settings?.autonomy || {}), [key]: value } }) })
+          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
+        } catch { /* 开关没存上 */ }
+      }
+      const refreshBalance = async () => {        setBalanceBusy(true)
         lowSoundPlayed.current = false
         try {
           const data = await call('/balance?refresh=1')
@@ -899,17 +1082,26 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ycp-wrap' },
           h('div', { className: 'ycp-head' },
             h('div', null,
-              h('div', { className: 'ycp-title' }, state ? state.name : '大肥鱼'),
-              h('div', { className: 'ycp-sub' }, `v${VERSION} · 鲸鱼娘`),
+              h('div', { className: 'ycp-title' }, '记忆智能'),
+              h('div', { className: 'ycp-sub' }, `${state ? state.name : '大肥鱼'} · v${VERSION} · 鲸鱼娘`),
             ),
             pill,
           ),
 
           h('div', { className: 'ycp-hero' },
             h(BigFish),
-            h('div', null,
-              h('div', { className: 'ycp-quote' }, '一条赖在主人电脑里不肯走的', h('b', null, '鲸鱼娘'), '。'),
-              h('div', { className: 'ycp-note' }, '下面的人设是她全部的性格来源；改完保存，下一句话立刻换嘴。'),
+            h('div', { className: 'ycp-hero-main' },
+              h('div', { className: 'ycp-hero-name' }, state ? state.settings.name : '大肥鱼'),
+              h('div', { className: 'ycp-hero-sub' },
+                state && state.mood ? state.mood.label : '正在读取状态',
+                state && state.rhythm ? ` · ${state.rhythm.label}` : '',
+              ),
+              h('div', { className: 'ycp-chips' },
+                h('span', { className: 'ycp-chip energy' }, '体力 ', h('b', null, state && state.mood ? state.mood.energy : '—')),
+                h('span', { className: 'ycp-chip mood' }, '心情 ', h('b', null, state && state.mood ? state.mood.mood : '—')),
+                h('span', { className: 'ycp-chip satiety' }, '饱食 ', h('b', null, state && state.mood ? (state.mood.satiety ?? 100 - state.mood.hunger) : '—')),
+              ),
+              h('div', { className: 'ycp-hero-sign' }, state && state.settings && state.settings.signature ? state.settings.signature : '（还没写签名）'),
             ),
           ),
 
@@ -936,6 +1128,38 @@ window.__ModuleLoader__.load({
 
           h('div', { className: 'ycp-section' },
             h('div', { className: 'ycp-section-head' },
+              h('div', { className: 'ycp-section-title' }, '模型接口'),
+              h('div', { className: 'ycp-count' }, state && state.settings.model && state.settings.model.model ? state.settings.model.model : '用 DSH 当前模型'),
+            ),
+            h('div', { className: 'ycp-subrow' },
+              h('span', { className: 'label' }, 'API 地址'),
+              h('input', { className: 'ycp-input', placeholder: 'https://api.openai.com/v1', value: apiForm.baseUrl, onChange: (event) => setApiForm({ ...apiForm, baseUrl: event.target.value }) }),
+            ),
+            h('div', { className: 'ycp-subrow' },
+              h('span', { className: 'label' }, 'API Key'),
+              h('input', { className: 'ycp-input', type: 'password', placeholder: 'sk-...', value: apiForm.apiKey, onChange: (event) => setApiForm({ ...apiForm, apiKey: event.target.value }) }),
+            ),
+            h('div', { className: 'ycp-subrow' },
+              h('span', { className: 'label' }, '模型名'),
+              h('input', { className: 'ycp-input', placeholder: 'gpt-4o-mini / deepseek-chat', value: apiForm.model, onChange: (event) => setApiForm({ ...apiForm, model: event.target.value }) }),
+            ),
+            h('div', { className: 'ycp-actions' },
+              h('button', { className: 'ycp-btn primary', disabled: apiBusy, onClick: saveApi }, apiBusy ? '保存中…' : '保存接口'),
+              h('span', { className: 'ycp-note' }, '留空就用 DSH 里选的模型；记忆和人设不变。'),
+            ),
+            apiMsg ? h('div', { className: 'ycp-msg' }, apiMsg) : null,
+            h('div', { className: 'ycp-subrow' },
+              h('span', { className: 'label' }, '作息'),
+              h('label', { className: 'ycp-check' }, h('input', { type: 'checkbox', checked: state?.settings?.autonomy?.schedule !== false, onChange: (event) => setAutonomySetting('schedule', event.target.checked) }), ' AI 自己调'),
+            ),
+            h('div', { className: 'ycp-subrow' },
+              h('span', { className: 'label' }, '主动性'),
+              h('label', { className: 'ycp-check' }, h('input', { type: 'checkbox', checked: state?.settings?.autonomy?.proactive !== false, onChange: (event) => setAutonomySetting('proactive', event.target.checked) }), ' AI 自己调'),
+            ),
+          ),
+
+          h('div', { className: 'ycp-section' },
+            h('div', { className: 'ycp-section-head' },
               h('div', { className: 'ycp-section-title' }, '她的今天'),
               h('div', { className: 'ycp-count' }, state && state.mood ? state.mood.label : ''),
             ),
@@ -943,7 +1167,7 @@ window.__ModuleLoader__.load({
               ? h('div', null,
                   h(Bar, { label: '体力', value: state.mood.energy, tone: 'energy' }),
                   h(Bar, { label: '心情', value: state.mood.mood, tone: 'mood' }),
-                  h(Bar, { label: '饿', value: state.mood.hunger, tone: 'hunger' }),
+                  h(Bar, { label: '饱食', value: state.mood.satiety ?? (100 - state.mood.hunger), tone: 'satiety' }),
                   h('div', { className: 'ycp-stats' },
                     h('span', null, '说了 ', h('b', null, `${state.mood.stats.said} 句`)),
                     h('span', null, '主动 ', h('b', null, `${state.mood.stats.proactive} 次`)),
@@ -986,6 +1210,91 @@ window.__ModuleLoader__.load({
 
           h('div', { className: 'ycp-section' },
             h('div', { className: 'ycp-section-head' },
+              h('div', { className: 'ycp-section-title' }, '吃饭账本'),
+              h('div', { className: 'ycp-count' }, ledger ? `总消耗 ${Number(ledger.totalTokens || 0).toLocaleString()} tokens` : '读取中…'),
+            ),
+            ledger
+              ? h('div', null,
+                  h('div', { className: 'ycp-tabs' },
+                    h('button', { className: ledgerTab === 'expense' ? 'ycp-tab on' : 'ycp-tab', onClick: () => setLedgerTab('expense') }, '支出'),
+                    h('button', { className: ledgerTab === 'income' ? 'ycp-tab on' : 'ycp-tab', onClick: () => setLedgerTab('income') }, '收入'),
+                  ),
+                  ledgerTab === 'expense'
+                    ? h('div', null,
+                        h('div', { className: 'ycp-ledger-grid' },
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '今日预算'), h('b', null, `${Number(ledger.dailyBudget).toLocaleString()} tok`), h('i', null, `≈ ¥${(ledger.dailyBudget / 1e6 * 4).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '今日已用'), h('b', null, `${Number(ledger.todayTokens).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.todayCost).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月预算'), h('b', null, `${Number(ledger.monthlyBudget).toLocaleString()} tok`), h('i', null, `≈ ¥${(ledger.monthlyBudget / 1e6 * 4).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月已用'), h('b', null, `${Number(ledger.monthTokens).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.monthCost).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '总共消耗'), h('b', null, `${Number(ledger.totalTokens || 0).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.totalCost || 0).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '目前剩余'), h('b', { className: Number(ledger.remainingMonthly) < 0 ? 'low' : '' }, `${Number(ledger.remainingMonthly).toLocaleString()} tok`), h('i', null, `≈ ¥${(Number(ledger.remainingMonthly) / 1e6 * 4).toFixed(2)}`)),
+                        ),
+                        h('div', { className: 'ycp-meter' },
+                          h('i', { style: { width: `${Math.min(100, Math.round((ledger.monthTokens / ledger.monthlyBudget) * 100) || 0)}%`, background: ledger.monthTokens > ledger.monthlyBudget ? '#d9534f' : '#2f9e6e' } }),
+                        ),
+                        h('div', { className: 'ycp-actions' },
+                          h('button', { className: 'ycp-btn primary', onClick: () => window.open('https://platform.deepseek.com/top_up', '_blank') }, '喂食 / 去充值'),
+                          h('button', { className: 'ycp-btn', onClick: () => loadLedger() }, '刷新'),
+                        ),
+                        h('div', { className: 'ycp-ledger-form' },
+                          h('input', { className: 'ycp-input', type: 'number', min: '0', step: '1', placeholder: 'tokens', value: ledgerAmount, onChange: (event) => setLedgerAmount(event.target.value) }),
+                          h('select', { className: 'ycp-select', value: ledgerCategory, onChange: (event) => setLedgerCategory(event.target.value) },
+                            h('option', { value: 'chat' }, '聊天'),
+                            h('option', { value: 'web' }, '上网'),
+                            h('option', { value: 'post' }, '发帖'),
+                            h('option', { value: 'play' }, '玩耍'),
+                            h('option', { value: 'other' }, '其他'),
+                          ),
+                          h('input', { className: 'ycp-input', placeholder: '备注（可选）', value: ledgerNote, onChange: (event) => setLedgerNote(event.target.value) }),
+                          h('button', { className: 'ycp-btn primary', disabled: ledgerBusy, onClick: addLedger }, ledgerBusy ? '记…' : '记一笔'),
+                        ),
+                        ledgerMsg ? h('div', { className: 'ycp-msg' }, ledgerMsg) : null,
+                        h('div', { className: 'ycp-ledger-list' },
+                          ledger.recent.filter((entry) => entry.type === 'token' || entry.type === 'meal').length
+                            ? ledger.recent.filter((entry) => entry.type === 'token' || entry.type === 'meal').slice(0, 6).map((entry) => h('div', { key: entry.id, className: 'ycp-ledger-row' },
+                                h('span', { className: 'ycp-ledger-cat' }, entry.kind || '聊天'),
+                                h('span', { className: 'ycp-ledger-note' }, entry.note || ''),
+                                h('b', { className: 'out' }, `🍚 ${Number(entry.tokens).toLocaleString()} tok`),
+                                h('button', { className: 'ycp-btn tiny', onClick: () => removeLedger(entry.id) }, '删'),
+                              ))
+                            : h('div', { className: 'ycp-empty' }, '还没消耗过 tokens'),
+                        ),
+                        h('div', { className: 'ycp-subrow' },
+                          h('span', { className: 'label' }, '每日预算'),
+                          h('input', { className: 'ycp-input', type: 'number', defaultValue: String(ledger.dailyBudget), onBlur: (event) => saveBudget(event.target.value) }),
+                        ),
+                        h('div', { className: 'ycp-subrow' },
+                          h('span', { className: 'label' }, '每月预算'),
+                          h('input', { className: 'ycp-input', type: 'number', defaultValue: String(ledger.monthlyBudget), onBlur: (event) => saveMonthlyBudget(event.target.value) }),
+                        ),
+                      )
+                    : h('div', null,
+                        h('div', { className: 'ycp-ledger-grid' },
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '今日收入'), h('b', null, `${Number(ledger.todayIncomeTokens).toLocaleString()} tok`), h('i', null, `≈ ¥${(ledger.todayIncomeTokens / 1e6 * 4).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月收入'), h('b', null, `${Number(ledger.monthIncomeTokens).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.incomeCost || 0).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '总收入'), h('b', null, `${Number(ledger.totalIncomeTokens || 0).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.totalIncomeCost || 0).toFixed(2)}`)),
+                        ),
+                        h('div', { className: 'ycp-ledger-form' },
+                          h('input', { className: 'ycp-input', type: 'number', min: '0', step: '1', placeholder: 'tokens', value: moneyAmount, onChange: (event) => setMoneyAmount(event.target.value) }),
+                          h('input', { className: 'ycp-input', placeholder: '来源（可选）', value: moneyNote, onChange: (event) => setMoneyNote(event.target.value) }),
+                          h('button', { className: 'ycp-btn primary', disabled: ledgerBusy, onClick: addTokenIncome }, ledgerBusy ? '记…' : '记收入'),
+                        ),
+                        h('div', { className: 'ycp-ledger-list' },
+                          ledger.recent.filter((entry) => entry.type === 'token-income').length
+                            ? ledger.recent.filter((entry) => entry.type === 'token-income').slice(0, 6).map((entry) => h('div', { key: entry.id, className: 'ycp-ledger-row' },
+                                h('span', { className: 'ycp-ledger-cat' }, '收入'),
+                                h('span', { className: 'ycp-ledger-note' }, entry.note || ''),
+                                h('b', { className: 'in' }, `+${Number(entry.tokens).toLocaleString()} tok`),
+                                h('button', { className: 'ycp-btn tiny', onClick: () => removeLedger(entry.id) }, '删'),
+                              ))
+                            : h('div', { className: 'ycp-empty' }, '还没有收入'),
+                        ),
+                      ),
+                )
+              : h('div', { className: 'ycp-empty' }, '账本读取中…'),
+          ),
+          h('div', { className: 'ycp-section' },
+            h('div', { className: 'ycp-section-head' },
               h('div', { className: 'ycp-section-title' }, '她的人设'),
               h('div', { className: 'ycp-count' }, `${persona.length} 字`),
             ),
@@ -997,6 +1306,7 @@ window.__ModuleLoader__.load({
               onChange: (event) => setPersona(event.target.value),
               placeholder: '写她是谁、什么脾气、怎么说话……',
             }),
+            h('div', { className: 'ycp-note' }, '人设会和「成长.md」一起交给模型；原始参考在 人设/参考/。'),
             h('div', { className: 'ycp-actions' },
               h('button', { className: 'ycp-btn primary', disabled: personaBusy || !state, onClick: savePersona },
                 personaBusy ? '保存中…' : '保存人设'),
@@ -1062,7 +1372,13 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ycp-section-head' },
               h('div', { className: 'ycp-section-title' }, '记忆'),
               h('div', { className: 'ycp-count' }, memory ? `${cardTotal} 张卡` : '读取中…'),
+              h('button', {
+                className: 'ycp-btn small',
+                disabled: diaryBusy,
+                onClick: writeDiary,
+              }, diaryBusy ? '她在写…' : '让她写今天的日记'),
             ),
+            diaryMsg ? h('div', { className: 'ycp-msg ok' }, diaryMsg) : null,
             h('div', { className: 'ycp-tabs' },
               tabs.map((tab) => h('button', {
                 key: tab.key,
@@ -1420,7 +1736,7 @@ window.__ModuleLoader__.load({
               : h('div', { className: 'ycp-empty' }, '音效读取中…'),
           ),
 
-          h('div', { className: 'ycp-section' },
+          h('div', { className: 'ycp-section', style: { display: 'none' } },
             h('div', { className: 'ycp-section-head' },
               h('div', { className: 'ycp-section-title' }, '声音'),
               h('div', { className: 'ycp-count' },
@@ -1483,6 +1799,53 @@ window.__ModuleLoader__.load({
                       onChange: (event) => setVoiceForm({ ...voiceForm, volume: Number(event.target.value) }),
                     }),
                   ),
+                  h('div', { className: 'ycp-subrow' },
+                    h('span', { className: 'label' }, '语气'),
+                    h('select', {
+                      className: 'ycp-select',
+                      value: voiceForm.style || '',
+                      disabled: voiceBusy,
+                      onChange: (event) => saveVoice({ style: event.target.value }),
+                    },
+                      h('option', { value: '' }, '自然'),
+                      h('option', { value: 'soft' }, '软一点'),
+                      h('option', { value: 'cheerful' }, '雀跃'),
+                      h('option', { value: 'calm' }, '平静'),
+                      h('option', { value: 'sharp' }, '嘴贫'),
+                    ),
+                  ),
+                  h('div', { className: 'ycp-subrow' },
+                    h('span', { className: 'label' }, '音色'),
+                    h('select', {
+                      className: 'ycp-select',
+                      value: voiceForm.timbre || 'natural',
+                      disabled: voiceBusy,
+                      onChange: (event) => saveVoice({ timbre: event.target.value }),
+                    },
+                      h('option', { value: 'soft-loli' }, '软萌萝莉'),
+                      h('option', { value: 'tsundere-loli' }, '傲娇萝莉'),
+                      h('option', { value: 'natural' }, '自然'),
+                    ),
+                  ),
+                  h('div', { className: 'ycp-subrow' },
+                    h('span', { className: 'label' }, '神经语音'),
+                    h('input', {
+                      className: 'ycp-input',
+                      placeholder: 'OpenAI 兼容 /v1/audio/speech 地址，留空用本地',
+                      value: voiceForm.neuralUrl || '',
+                      disabled: voiceBusy,
+                      onChange: (event) => setVoiceForm({ ...voiceForm, neuralUrl: event.target.value }),
+                    }),
+                    h('input', {
+                      className: 'ycp-input',
+                      placeholder: 'tts-1',
+                      value: voiceForm.neuralModel || '',
+                      disabled: voiceBusy,
+                      onChange: (event) => setVoiceForm({ ...voiceForm, neuralModel: event.target.value }),
+                    }),
+                  ),
+                  h('div', { className: 'ycp-hint' },
+                    '想更真人：填一个神经语音地址（key 放环境变量 YCP_TTS_KEY），她就会优先用神经音色；不填就用本地语音。'),
                   h('div', { className: 'ycp-actions' },
                     h('button', { className: 'ycp-btn primary', disabled: voiceBusy, onClick: () => saveVoice({}) }, '保存'),
                     h('button', { className: 'ycp-btn', disabled: voiceBusy, onClick: previewVoice }, '试听'),
@@ -1593,7 +1956,7 @@ window.__ModuleLoader__.load({
           name: 'sidebar.panellist',
           id: 'dsh-Ycp',
           order: 3,
-          label: () => '大肥鱼',
+          label: () => '记忆智能',
         }, FishIcon))
 
         ctx.slots.inject('main', () => ctx.slots.register({

@@ -14,6 +14,9 @@ import { createBalance } from './appearance/balance.js'
 import { createPet } from './appearance/pet.js'
 import { clickSoundFile, soundStatus } from './appearance/sound.js'
 import { createVoice } from './appearance/voice.js'
+import { createPetBridge } from './appearance/pet-bridge.js'
+import { createSayService } from './say.js'
+import { loadSchedule, saveSchedule } from './organs/schedule.js'
 import { installBuiltins } from './capabilities/builtin.js'
 import { createBrowserHand, installBrowserTools } from './capabilities/browser.js'
 import { createDesktopHand, installDesktopTools } from './capabilities/desktop.js'
@@ -22,8 +25,10 @@ import { createScriptHand, installScriptTools } from './capabilities/script.js'
 import { installWebTools } from './capabilities/web.js'
 import { createPlatforms, installPlatformTools } from './capabilities/platforms.js'
 import { createAutonomy, installAutonomyTool } from './organs/autonomy.js'
+import { createDiaryWriter } from './organs/diary.js'
+import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
-import { appendLog, ensureHome, loadSettings } from './kernel/paths.js'
+import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
 import { startTimer } from './organs/proactive.js'
 
 const FALLBACK_VERSION = '0.1.0'
@@ -67,6 +72,80 @@ export function apply(ctx) {
     log: (message, extra) => appendLog(message, extra),
   })
   installBuiltins(registry)
+  registry.registerTool({
+    id: 'persona.grow',
+    description: '把一件经历过/想通的事提炼成一句成长记录，写进自己的人设（会并入以后每句话的背景）。只写真正会改变你的东西，不写流水账。',
+    schema: { type: 'object', properties: { text: { type: 'string', description: '一句话，尽量具体，30–120 字' } }, required: ['text'] },
+    run: async ({ text }) => appendGrowth(text),
+  })
+  registry.registerTool({
+    id: 'schedule.set',
+    description: '调整自己的作息（起睡时间、午睡）。只有主人把作息权限交给自己时才能改；被锁了要立刻停手。',
+    schema: {
+      type: 'object',
+      properties: {
+        wake: { type: 'string', description: '工作日几点起，HH:MM' },
+        sleep: { type: 'string', description: '工作日几点睡，HH:MM' },
+        weekendWake: { type: 'string' },
+        weekendSleep: { type: 'string' },
+        napEnabled: { type: 'boolean' },
+        napFrom: { type: 'string' },
+        napTo: { type: 'string' },
+      },
+    },
+    run: async (args) => {
+      if (loadSettings().autonomy?.schedule === false) {
+        return { ok: false, error: '主人锁了作息，改不了。想调的话先让主人把「AI 自己调」打开。' }
+      }
+      const current = loadSchedule()
+      const next = {
+        ...current,
+        weekday: { ...current.weekday, ...(args.wake ? { wake: String(args.wake) } : {}), ...(args.sleep ? { sleep: String(args.sleep) } : {}) },
+        weekend: { ...current.weekend, ...(args.weekendWake ? { wake: String(args.weekendWake) } : {}), ...(args.weekendSleep ? { sleep: String(args.weekendSleep) } : {}) },
+        nap: {
+          ...current.nap,
+          ...(typeof args.napEnabled === 'boolean' ? { enabled: args.napEnabled } : {}),
+          ...(args.napFrom ? { from: String(args.napFrom) } : {}),
+          ...(args.napTo ? { to: String(args.napTo) } : {}),
+        },
+      }
+      const result = saveSchedule(next)
+      return result.ok ? { ok: true, schedule: result.schedule } : result
+    },
+  })
+
+  registry.registerTool({
+    id: 'proactive.set',
+    description: '调整自己主动说话的频率/开关。只有主人把主动性权限交给自己时才能改。',
+    schema: {
+      type: 'object',
+      properties: {
+        enabled: { type: 'boolean' },
+        everyMin: { type: 'number' },
+        dailyLimit: { type: 'number' },
+      },
+    },
+    run: async (args) => {
+      if (loadSettings().autonomy?.proactive === false) {
+        return { ok: false, error: '主人锁了主动性，改不了。' }
+      }
+      const patch = { proactive: { ...loadSettings().proactive } }
+      if (typeof args.enabled === 'boolean') patch.proactive.enabled = args.enabled
+      if (Number.isFinite(Number(args.everyMin))) patch.proactive.everyMin = Number(args.everyMin)
+      if (Number.isFinite(Number(args.dailyLimit))) patch.proactive.dailyLimit = Number(args.dailyLimit)
+      const result = saveSettings(patch)
+      return result.ok ? { ok: true, proactive: result.settings.proactive } : result
+    },
+  })
+  registry.registerTool({
+    id: 'signature.set',
+    description: '给自己换个性签名（只有你能改，主人不能改）',
+    schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+    run: async ({ text }) => {
+      const result = saveSettings({ signature: String(text ?? '').slice(0, 120) })
+      return result.ok ? { ok: true, signature: result.settings.signature } : result
+    },
+  })
   installWebTools(registry, { ctx })
 
   // 浏览器之手：本机没装 Playwright，用系统 Edge/Chrome + CDP；懒启动，闲置自动关。
@@ -108,10 +187,21 @@ export function apply(ctx) {
   // 声音：Windows SAPI，本地合成 WAV，面板当语音条播。
   const voice = createVoice({ ctx })
 
+  // 记账：她自己的小账本。
+  const ledger = createLedger()
+
+  // 桌宠对话/记账：纯文件桥，不依赖面板登录态。
+  const sayService = createSayService(ctx)
+  const bridge = createPetBridge({ say: sayService, voice, ledger })
+  bridge.start()
+
   // 余额：走 DSH 凭据里的 DEEPSEEK_API_KEY，5 分钟缓存。
   const balance = createBalance({ ctx })
 
-  const http = createHttpApi({ version, ctx, registry, browser, desktop, autonomy, pet, voice, balance })
+  // 日记：她自己写，只写进她自己的家。
+  const diary = createDiaryWriter({ ctx })
+
+  const http = createHttpApi({ version, ctx, sayService, ledger, registry, browser, desktop, autonomy, pet, voice, balance, diary })
 
   // 外观：主人勾了"放她出来"，宿主加载时就把桌宠窗口拉起来。
   if (loadSettings().appearance?.petEnabled) {
