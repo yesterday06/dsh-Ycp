@@ -6,6 +6,7 @@
  *   POST /api/dsh-brain/settings 改开关 / 阈值 / top-k / 单卡上限
  *   POST /api/dsh-brain/card     读 / 写 / 删卡片
  *   POST /api/dsh-brain/action   立即接续 / 立即消化 / 打开目录 / 接续确认
+ *   POST /api/dsh-brain/seal     封存并开新会话（1.1 面板按钮）
  *
  * 写操作只接受同源请求；body 上限 1 MB。
  */
@@ -207,6 +208,20 @@ export function createHttpApi({ ctx, store, getSettings, saveSettings, getState,
           const body = await readBody(req)
           const result = await cardAction(body)
           sendJson(res, result.status, result.value)
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-brain/seal',
+        handler: handlerFor(async (req, res) => {
+          if (req.method !== 'POST') return sendJson(res, 405, { ok: false, error: 'POST only' })
+          if (!sameOrigin(req)) return sendJson(res, 403, { ok: false, error: 'untrusted origin' })
+          const body = await readBody(req)
+          const sessionId = body?.sessionId ? String(body.sessionId) : undefined
+          const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {}
+          appendLog('面板请求封存', { sessionId: sessionId ?? null })
+          const result = await autopilot.sealTask(payload, { source: 'panel', sessionId })
+          sendJson(res, result.ok ? 200 : 409, result)
         }),
       },
       {

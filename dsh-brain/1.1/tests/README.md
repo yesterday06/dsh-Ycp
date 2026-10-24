@@ -1,7 +1,8 @@
 # tests
 
-- `unit-smoke.mjs` —— 卡片存储、4 个工具、注入链（临时工作区，不碰真实文件）。
+- `unit-smoke.mjs` —— 卡片存储、工具、注入链（临时工作区，不碰真实文件）。
 - `handoff-smoke.mjs` —— 自动接续：写实时卡 / 建会话 / 继承 / 归档 / pendingHandoff。
+- `seal-smoke.mjs` —— 任务封存：任务卡、会话摘要、建会话、拒绝条件、失败回滚。
 - `compare-10.mjs` —— 10 问回归对照 sage-mem 基线。
 - `read-session.mjs` —— 解多帧 zstd 会话日志（调试用）。
 - `cdp-check.mjs` / `cdp-eval.mjs` / `cdp-shot.mjs` —— Edge headless + CDP 面板验证。

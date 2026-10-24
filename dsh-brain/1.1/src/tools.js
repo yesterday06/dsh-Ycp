@@ -1,7 +1,8 @@
 /**
- * dsh-brain · 4 个模型工具。
+ * dsh-brain · 5 个模型工具。
  *
  * 工具是「主动记忆」：注入是插件猜模型想看什么，工具让模型自己翻。
+ * 1.1 新增 task_seal：任务完成时封存并开新会话。
  * 所有失败都返回 {ok:false, error}，绝不抛 —— 一次读不到不该打断模型那一轮。
  */
 import { cardBody, clip } from './cards.js'
@@ -57,7 +58,26 @@ function renderDigest(_args, value) {
   return text(`已消化到 ${v.target}（${v.chars} 字），实时卡已清空为下一步提示。${v.backup ? `\n旧内容备份：${v.backup}` : ''}`)
 }
 
-export function createTools({ ctx, store, getSettings }) {
+function renderSeal(_args, value) {
+  const v = value ?? {}
+  if (v.ok === false) {
+    const tail = v.card ? `\n任务卡：${v.card.file ?? '当前任务.md'}` : ''
+    const summary = v.summary ? `\n会话摘要：${v.summary}` : ''
+    return text(`封存未完成：${v.error ?? '未知错误'}${tail}${summary}`)
+  }
+  const handoff = v.handoff ?? {}
+  const lines = [
+    `已封存并开新会话：${String(handoff.to ?? '').slice(0, 20)}`,
+    `任务卡：${v.card?.file ?? '当前任务.md'}（${v.card?.chars ?? 0} 字${v.card?.truncated ? '，已按优先级截断' : ''}）`,
+    v.summary ? `会话摘要：${v.summary.path}（${v.summary.chars} 字）` : `会话摘要没写成：${v.summaryError ?? '未知原因'}`,
+    `旧会话已归档：${handoff.archived ? '是' : '否（不阻塞）'}`,
+    `模型继承：${handoff.model ? `${handoff.model.provider}/${handoff.model.model}` : '未取到'}`,
+    '旧会话已归档，不要再在这里继续；用户会切到新会话，新会话首步会读到这张任务卡。',
+  ]
+  return text(lines.join('\n'))
+}
+
+export function createTools({ ctx, store, getSettings, sealTask }) {
   const search = {
     name: 'memory_search',
     description:
@@ -210,19 +230,70 @@ export function createTools({ ctx, store, getSettings }) {
     },
   }
 
-  return { search, read, write, digest }
+  const seal = {
+    name: 'task_seal',
+    description:
+      '任务完成时调用：把本次任务封存成任务卡（≤800 字）与会话摘要，然后自动建一个新会话、继承模型与权限、归档当前会话。' +
+      '调用前把任务名、已完成、关键决定、涉及文件、下一步、坑、关键命令填好；没填的字段由插件从会话里补。' +
+      '拒绝条件：有未完成的工具调用、会话轮次 < 2、5 秒内重复调用。' +
+      '这个工具会切换会话：调用后不要继续在当前会话干活，等用户到新会话继续。',
+    parameters: {
+      type: 'object',
+      properties: {
+        task: { type: 'string', description: '一句话：这次任务在干什么（必填，新会话靠它接手）' },
+        done: { type: 'array', items: { type: 'string' }, description: '已完成的事，3–6 条，每条带结果，≤40 字' },
+        decisions: { type: 'array', items: { type: 'string' }, description: '关键决定：为什么这么做、备选是什么、为什么不选' },
+        files: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              path: { type: 'string', description: '绝对路径' },
+              change: { type: 'string', description: '改了什么' },
+            },
+            required: ['path', 'change'],
+            additionalProperties: false,
+          },
+          description: '涉及的文件与改动',
+        },
+        next: { type: 'array', items: { type: 'string' }, description: '下一步，1–3 条，可直接执行' },
+        pitfalls: { type: 'array', items: { type: 'string' }, description: '这次踩到的坑，避免重蹈' },
+        commands: { type: 'array', items: { type: 'string' }, description: '关键命令原文，新会话照着跑就能回到现场' },
+        request: { type: 'string', description: '可选：用户原始需求原话，写进会话摘要' },
+        process: { type: 'array', items: { type: 'string' }, description: '可选：关键过程（做了什么 → 结果）' },
+        errors: { type: 'array', items: { type: 'string' }, description: '可选：报错原文与怎么修的' },
+        rollback: { type: 'array', items: { type: 'string' }, description: '可选：回滚方法' },
+      },
+      required: [],
+      additionalProperties: false,
+    },
+    output: { schema: { type: 'object' }, render: renderSeal },
+    isConcurrencySafe: () => false,
+    async execute(args, exec) {
+      try {
+        const session = exec?.agent?.session
+        if (!session) return { ok: false, error: '拿不到当前会话，无法封存' }
+        if (typeof sealTask !== 'function') return { ok: false, error: '封存功能未装载（Host 未提供）' }
+        return await sealTask(args ?? {}, { session, callId: exec?.callId, source: 'tool' })
+      } catch (error) {
+        return { ok: false, error: String(error?.message ?? error) }
+      }
+    },
+  }
+
+  return { search, read, write, digest, seal }
 }
 
 /**
  * 用 ctx.inject 挂工具：拿不到 tools 服务时主插件照常做注入，不会整体待机。
  */
-export function mountTools({ ctx, store, getSettings }) {
+export function mountTools({ ctx, store, getSettings, sealTask }) {
   const state = { ready: false }
   try {
     if (typeof ctx.inject === 'function') {
       ctx.inject(['tools'], (inner) => {
         try {
-          const tools = createTools({ ctx, store, getSettings })
+          const tools = createTools({ ctx, store, getSettings, sealTask })
           for (const tool of Object.values(tools)) inner.tools.register(tool)
           state.ready = true
         } catch (error) {

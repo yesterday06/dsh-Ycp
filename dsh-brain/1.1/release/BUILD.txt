@@ -1,27 +1,26 @@
 dsh-brain 构建记录
 ==================
 
-版本:       0.1.0
-构建时间:   2026-10-23 21:44:00 +08:00
-DSH 版本:   0.2.1-rc.2 (commit 332895e)
-包文件:     release/dsh-brain-0.1.0.tgz
-包大小:     32949 bytes
-SHA-256:    78FF9FA3EDD67A853CDAB289C7935968F3BA5776EDFD288AB61FF76A6AC26FAB
-源码目录:   D:\OpenAI\工作区1\记忆大脑
-已安装副本: release\installed\dsh-brain
+版本:       0.2.0
+构建时间:   2026-10-24 16:30:00 +08:00
+DSH 版本:   0.2.1-rc.2
+Node:       >= 22.19
+包文件:     release/dsh-brain-0.2.0.tgz
+包大小:     42116 bytes
+SHA-256:    0EF4726FE0A3E9FAD104B4C6878B34F1A1DBF9A54ED9539BBBB57C8482ABE894
+源码目录:   dsh-brain/1.1
+打包方式:   bsdtar 3.8.1，包根为 package/（等价 pnpm pack 的产物结构）
 
 安装方式:
   cd %USERPROFILE%\.dsh\profiles\desktop
-  pnpm add link:D:\OpenAI\工作区1\记忆大脑
-  再把 "dsh-brain" 加进 package.json 的 dsh.profile.bundles
+  pnpm add link:<仓库路径>\1.1
+  再把 "dsh-brain" 加进 package.json 的 dsh.profile.bundles，重启 DSH
 
-说明:
-  installed 副本来自桌面 profile 的 node_modules/dsh-brain（link 指向源码）。
-  按 package.json 的发布文件清单复制，排除了 tests/、release/、DESIGN.md、.gitignore
-  这些不进发布包的开发文件。
+发布内容（package.json 的 files 清单）:
+  src/、locale/*.json、icon.svg、cordis.patch.yml、README.md、LICENSE、package.json
+  不含 tests/、release/、DESIGN*.md、.gitignore
 
 验收:
-  P0  注入 + 4 工具 + 卡片读写
-  P1  5% 阈值实测 12% 触发；模型/模式/权限继承、旧会话归档
-  P2  桌面 sidebar.panellist 已注册 dsh-brain（order 2），main key dsh-brain 已注册
-  P3  10 问回归 dsh-brain 10/10，sage-mem 基线 7/10；sage-mem 已卸载
+  0.2.0 新增 task_seal：unit-smoke / handoff-smoke / seal-smoke 全过；
+  10 问回归 10/10（sage-mem 基线 7/10）；
+  封存后新会话首请求 input ≤ 12k token，首步能复述任务与下一步。

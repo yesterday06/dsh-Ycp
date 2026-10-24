@@ -10,7 +10,7 @@ import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rena
 import { homedir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 
-export const VERSION = '0.1.0'
+export const VERSION = '0.2.0'
 
 export function dshHome() {
   return process.env.DSH_HOME || join(homedir(), '.dsh')
@@ -59,6 +59,49 @@ export function workspacePaths(cwd) {
   }
 }
 
+/** 会话摘要目录（DESIGN-1.1 第十一节）：<工作区>/工作记忆/实时记忆/日志/会话摘要/ */
+export function sessionSummaryDir(cwd) {
+  return join(workspacePaths(cwd).logDir, '会话摘要')
+}
+
+/** 文件名时间戳：YYYYMMDD-HHmm，本地时区。 */
+export function stampMinutes(value) {
+  const d = value instanceof Date ? value : new Date(value ?? Date.now())
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+}
+
+/** 把任务名压成安全的文件名片段：去非法字符、空白折成 -、截 24 字。 */
+export function safeFileName(input, fallback = '任务') {
+  const raw = String(input ?? '')
+    .replace(/[\\/:*?"<>|\r\n\t]+/g, ' ')
+    .replace(/\s+/g, '-')
+    .replace(/^[-.]+|[-.]+$/g, '')
+    .slice(0, 24)
+    .replace(/[-.]+$/g, '')
+  return raw || fallback
+}
+
+/**
+ * 会话摘要路径（DESIGN-1.1 第十一节）：
+ *   <cwd>/工作记忆/实时记忆/日志/会话摘要/<YYYYMMDD-HHmm>-<任务名>.md
+ * options.task 给任务名，options.at 给时间（默认现在），options.index 处理同名序号。
+ */
+export function sessionSummaryPath(cwd, options = {}) {
+  const at = options.at instanceof Date ? options.at : options.at ? new Date(Number(options.at) || options.at) : new Date()
+  const task = safeFileName(options.task)
+  const index = Number(options.index) > 0 ? `-${Math.round(Number(options.index))}` : ''
+  return join(sessionSummaryDir(cwd), `${stampMinutes(at)}-${task}${index}.md`)
+}
+
+/** 状态里找「这个会话是由封存创建的」（DESIGN-1.1 第五节的 sealedFrom）。 */
+export function sealRecordFor(state, sessionId) {
+  if (!state || !sessionId) return null
+  const handoffs = Array.isArray(state.handoffs) ? state.handoffs : []
+  const id = String(sessionId)
+  return handoffs.find((h) => h && h.kind === 'seal' && String(h.to) === id) || null
+}
+
 export const DEFAULT_SETTINGS = Object.freeze({
   autopilot: true,
   threshold: 80,
@@ -67,6 +110,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   baselineChars: 1300,
   summaryChars: 120,
   maxRoundChars: 2400,
+  // 封存后的新会话首步预算（任务卡 + 画像 + 概况），DESIGN-1.1 第五节。
+  firstStepChars: 1500,
 })
 
 const SETTING_SPECS = {
@@ -76,6 +121,7 @@ const SETTING_SPECS = {
   baselineChars: { lo: 200, hi: 4000 },
   summaryChars: { lo: 40, hi: 600 },
   maxRoundChars: { lo: 400, hi: 8000 },
+  firstStepChars: { lo: 600, hi: 6000 },
 }
 
 function clampInt(value, spec, fallback) {

@@ -3,9 +3,10 @@
  *
  * 一个插件同时提供：
  *   - 四层记忆（全局 3 张卡 + 项目卡 + 实时卡 + 日志）
- *   - 每会话首步画像注入 + 每轮 top-k BM25 检索
- *   - 4 个模型工具：memory_search / memory_read / memory_write / memory_digest
+ *   - 每会话首步画像注入 + 每轮 top-k BM25 检索 + 封存会话注入任务卡
+ *   - 5 个模型工具：memory_search / memory_read / memory_write / memory_digest / task_seal
  *   - 自动接续：到阈值建新会话、继承模型与权限、归档旧会话
+ *   - 任务封存：写任务卡 + 会话摘要、开新会话、归档旧会话（1.1）
  *   - 左侧边栏「记忆大脑」面板的数据接口（Client 半见 src/client.js）
  */
 import { readFileSync } from 'node:fs'
@@ -99,6 +100,7 @@ export function apply(ctx) {
     ctx,
     store,
     getSettings,
+    getState: () => state,
     getPrompt: (sessionId) => {
       const cached = pendingPrompts.get(String(sessionId))
       if (!cached) return ''
@@ -125,9 +127,13 @@ export function apply(ctx) {
     try { injector.dispose?.(session?.id) } catch { /* 已清理 */ }
   })
 
-  const tools = mountTools({ ctx, store, getSettings })
-
   const autopilot = createAutopilot({ ctx, store, getSettings, getState, setState })
+  const tools = mountTools({
+    ctx,
+    store,
+    getSettings,
+    sealTask: (payload, options) => autopilot.sealTask(payload, options),
+  })
   ctx.on('session/event', (session, event) => {
     if (event?.type !== 'turn/end') return
     debugLog('检测到 turn/end', { sessionId: String(session?.id || ''), reason: event?.data?.reason?.kind })

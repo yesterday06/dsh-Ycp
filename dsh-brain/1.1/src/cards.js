@@ -16,6 +16,32 @@ import { backupFile, workspacePaths, writeAtomic } from './paths.js'
 const RESERVED = new Set(['memory.md', 'session-log.md'])
 const NAME_RE = /^[\p{L}\p{N}][^\\/:*?"<>|\r\n]{0,80}\.md$/u
 
+/**
+ * 实时卡「当前任务.md」的字数上限。
+ * 1.0 写卡时硬截 300；1.1 放宽到 800（DESIGN-1.1 第四节），封存的任务卡用满这个额度。
+ */
+export const REALTIME_CARD_LIMIT = 800
+export const REALTIME_CARD_FILE = '当前任务.md'
+export const SEAL_MARK = '**封存于**'
+
+/** 任务卡是否来自封存（注入用它判断要不要强制注入全文）。 */
+export function isSealCard(body) {
+  return String(body ?? '').includes(SEAL_MARK)
+}
+
+/** 从任务卡里读「来自会话 xxxxxxxx」。 */
+export function sealFromOf(body) {
+  const match = /来自会话\s+([0-9A-Za-z-]{4,40})/.exec(String(body ?? ''))
+  return match ? match[1] : ''
+}
+
+/** 按 1.1 的上限裁剪实时卡正文；超长时留省略号。 */
+export function clipRealtime(text, limit = REALTIME_CARD_LIMIT) {
+  const s = String(text ?? '').trim()
+  const n = Math.max(120, Number(limit) || REALTIME_CARD_LIMIT)
+  return s.length > n ? `${s.slice(0, n - 1)}…` : s
+}
+
 function stripBom(text) {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
 }

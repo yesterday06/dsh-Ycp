@@ -230,6 +230,9 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'db-status' },
         h('div', null, h('b', null, '注入：'), last ? `${fmt(last.at)} · 约 ${last.tokens} token · ${(last.files || []).join('、') || '仅 baseline'}` : '还没有注入记录'),
         h('div', null, h('b', null, '上次接续：'), handoff ? `${fmt(handoff.at)} · ${String(handoff.from).slice(0, 12)} → ${String(handoff.to).slice(0, 12)}` : '无'),
+        h('div', null, h('b', null, '上次封存：'), handoff && handoff.kind === 'seal'
+          ? `${fmt(handoff.at)} · ${handoff.seal?.task ?? '（未命名任务）'}${handoff.seal?.summary ? ' · 摘要已写' : ' · 摘要缺失'}`
+          : '无'),
         h('div', null, h('b', null, '归档旧会话：'), handoff ? (handoff.archived ? '成功' : '未成功（不阻塞）') : '—'),
         h('div', null, h('b', null, '卡片总数：'), `${status.cardCount ?? 0}`),
         h('div', null, h('b', null, '模型继承：'), handoff && handoff.model ? `${handoff.model.provider}/${handoff.model.model}` : '—'),
@@ -306,6 +309,16 @@ window.__ModuleLoader__.load({
         await load()
       })
 
+      const doSeal = () => withBusy('seal', async () => {
+        if (typeof window !== 'undefined') {
+          if (!window.confirm('封存并开新会话？\n会写任务卡（≤800 字）+ 会话摘要，建新会话并归档当前会话。')) return
+        }
+        const result = await post('/seal', {})
+        const to = String((result.handoff && result.handoff.to) || '').slice(0, 16)
+        setNotice(`已封存${to ? `：${to}` : ''} · 任务卡 ${result.card?.chars ?? 0} 字${result.summary ? ' · 摘要已写' : ''}`)
+        await load()
+      })
+
       const doAction = (action, extra) => withBusy(action, async () => {
         if (action === 'handoff' && typeof window !== 'undefined') {
           if (!window.confirm('立即接续？会写实时记忆、建新会话并归档当前会话。')) return
@@ -331,7 +344,8 @@ window.__ModuleLoader__.load({
           h('div', { className: 'db-sub' }, `v${data.version || '0.1.0'} · 全局 ${data.globalSource}`),
         ),
         h('div', { className: 'db-toolbar' },
-          h(Button, { kind: 'primary', disabled: Boolean(busy), onClick: () => doAction('handoff') }, '立即接续'),
+          h(Button, { kind: 'primary', disabled: Boolean(busy), onClick: doSeal }, busy === 'seal' ? '封存中…' : '封存并开新会话'),
+          h(Button, { disabled: Boolean(busy), onClick: () => doAction('handoff') }, '立即接续'),
           h(Button, { disabled: Boolean(busy), onClick: () => doAction('digest') }, '立即消化'),
           h(Button, { onClick: () => doAction('openDir', { target: 'global' }) }, '打开记忆目录'),
           h(Button, { onClick: () => doAction('openDir', { target: 'workspace' }) }, '打开工作区'),
