@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 function readConfig() {
   return {
     clickUrl: process.env.YCP_CLICK_URL || '',
+    name: process.env.YCP_NAME || '大肥鱼',
     volume: Number(process.env.YCP_SOUND_VOLUME) || 0,
   }
 }

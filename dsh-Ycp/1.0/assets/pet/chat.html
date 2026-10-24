@@ -28,7 +28,7 @@
 <body>
   <div class="card">
     <div class="bar">
-      <span>💬 大肥鱼</span>
+      <span>💬 <span id="petName">大肥鱼</span></span>
       <button id="close" title="收起">✕</button>
     </div>
     <div class="log" id="log"></div>
@@ -41,6 +41,7 @@
   </div>
 <script>
   const api = window.ycpPet || { chatSend(){}, onChatReply(){}, action(){}, chatResize(){} }
+  if (api.config && api.config.name) { const el = document.getElementById('petName'); if (el) el.textContent = api.config.name }
   const log = document.getElementById('log')
   const input = document.getElementById('text')
   const status = document.getElementById('status')

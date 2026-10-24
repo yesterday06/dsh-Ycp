@@ -23,7 +23,7 @@
 </head>
 <body>
   <div class="card">
-    <div class="head"><span class="dot"></span>大肥鱼</div>
+    <div class="head"><span class="dot"></span><span id="petName">大肥鱼</span></div>
     <div class="item" data-act="chat">💬 跟她说话</div>
     <div class="item" data-act="settings">⚙ 设置</div>
     <div class="item" data-act="ledger">💰 记账</div>
@@ -50,6 +50,7 @@
   </div>
 <script>
   const api = window.ycpPet || { menuPick(){}, onMenuState(){} }
+  if (api.config && api.config.name) { const el = document.getElementById('petName'); if (el) el.textContent = api.config.name }
   const send = (act, value) => { if (typeof api.menuPick === 'function') api.menuPick(act, value) }
   document.getElementById('pin').addEventListener('click', () => send('pin'))
   document.querySelectorAll('[data-act]:not(#pin):not(#gravity)').forEach((element) => {

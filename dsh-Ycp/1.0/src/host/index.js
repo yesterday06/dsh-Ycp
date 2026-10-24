@@ -131,6 +131,13 @@ export function apply(ctx) {
   })
 
   registry.registerTool({
+    id: 'name.set',
+    description: '给自己起/换名字（1–24 个字）。主人让你起名时用这个；名字会显示在面板和对话里。',
+    schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+    run: async ({ name }) => saveSettings({ name }),
+  })
+
+  registry.registerTool({
     id: 'persona.grow',
     description: '把一件经历过/想通的事提炼成一句成长记录，写进自己的人设（会并入以后每句话的背景）。只写真正会改变你的东西，不写流水账。',
     schema: { type: 'object', properties: { text: { type: 'string', description: '一句话，尽量具体，30–120 字' } }, required: ['text'] },

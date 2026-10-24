@@ -24,6 +24,7 @@ const STATE_DIR = path.dirname(STATE_FILE)
 const CHAT_REQUEST = path.join(STATE_DIR, '对话请求.json')
 const CHAT_REPLY = path.join(STATE_DIR, '对话回复.json')
 const DSH_URL = argOf('--ycp-url', '')
+const NAME = process.env.YCP_NAME || '大肥鱼'
 const BASE_WIDTH = 250
 const BASE_HEIGHT = 460
 
@@ -378,7 +379,7 @@ function updateTray() {
     { label: '退出', click: () => app.quit() },
   ])
   tray.setContextMenu(menu)
-  tray.setToolTip(pinned ? '大肥鱼（已固定）' : '大肥鱼')
+  tray.setToolTip(pinned ? NAME + '（已固定）' : NAME)
 }
 
 app.whenReady().then(() => {
