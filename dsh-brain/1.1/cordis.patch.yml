@@ -1,0 +1,6 @@
+# dsh-brain · 记忆大脑
+# 插入一个 Host 插件行；浏览器半由 package.json 的 dsh.client 声明，
+# 面板注册在 sidebar.panellist（id=dsh-brain）+ main（key=dsh-brain）。
+- insert:
+    - id: dsh-brain
+      name: 'dsh-brain'

@@ -1,0 +1,15 @@
+node_modules/
+.pnpm/
+dist/
+*.log
+.DS_Store
+Thumbs.db
+
+# 开发期临时产物
+release/installed/
+tests/state-*/
+tests/tmp-*/
+tests/edge-*/
+tests/edge-*.html
+tests/*.png
+tests/long-prompt.txt
