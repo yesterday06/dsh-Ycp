@@ -29,6 +29,7 @@ import { createDiaryWriter } from './organs/diary.js'
 import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
 import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
+import { appendDiary, writeCard } from './organs/memory.js'
 import { startTimer } from './organs/proactive.js'
 
 const FALLBACK_VERSION = '0.1.0'
@@ -72,6 +73,46 @@ export function apply(ctx) {
     log: (message, extra) => appendLog(message, extra),
   })
   installBuiltins(registry)
+  registry.registerTool({
+    id: 'diary.write',
+    description: '写今天的日记（追加到自己的 记忆/日记/YYYY-MM-DD.md）。第一人称、写具体的事和情绪，别写成汇报。',
+    schema: { type: 'object', properties: { text: { type: 'string', description: '日记正文，200–800 字' } }, required: ['text'] },
+    run: async ({ text }) => appendDiary(text),
+  })
+
+  registry.registerTool({
+    id: 'memory.card',
+    description: '新建或覆盖一张记忆卡（稳定的偏好、事实、约定、人物关系）。同类信息合并进一张卡，别记流水账；文件名用中文短语，如「主人的口味.md」。',
+    schema: {
+      type: 'object',
+      properties: {
+        layer: { type: 'string', enum: ['global', 'archive', 'realtime'] },
+        file: { type: 'string', description: '单层 .md 文件名' },
+        title: { type: 'string' },
+        tags: { type: 'array', items: { type: 'string' } },
+        body: { type: 'string' },
+      },
+      required: ['layer', 'file', 'title', 'body'],
+    },
+    run: async ({ layer, file, title, tags, body }) => {
+      const list = Array.isArray(tags) ? tags.map((tag) => String(tag).trim()).filter(Boolean) : []
+      const content = [
+        '---',
+        `name: ${String(title).slice(0, 60)}`,
+        `description: ${String(body).replace(/\s+/g, ' ').slice(0, 80)}`,
+        'metadata:',
+        `  type: ${String(layer)}`,
+        `  tags: [${list.map((tag) => JSON.stringify(tag)).join(', ')}]`,
+        `  updated: ${new Date().toISOString().slice(0, 10)}`,
+        '---',
+        '',
+        String(body).trim(),
+        '',
+      ].join('\n')
+      return writeCard(layer, file, content)
+    },
+  })
+
   registry.registerTool({
     id: 'persona.grow',
     description: '把一件经历过/想通的事提炼成一句成长记录，写进自己的人设（会并入以后每句话的背景）。只写真正会改变你的东西，不写流水账。',
