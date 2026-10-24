@@ -14,6 +14,7 @@ import { appendLog, loadPersona, loadSettings } from './kernel/paths.js'
 import { commitSay, checkSay, loadRateState } from './organs/gate.js'
 import { loadSchedule } from './organs/schedule.js'
 import { recordSay, moodSummary } from './organs/mood.js'
+import { appendRaw } from './organs/memory.js'
 import { memoryBlock, search } from './organs/search.js'
 import { buildSystem } from './kernel/prompt.js'
 
@@ -220,6 +221,9 @@ export function createSayService(ctx, options = {}) {
     }
 
     const ms = Date.now() - started
+    try {
+      appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms } })
+    } catch { /* 原始记忆记不上不影响说话 */ }
     const recalledList = [...recalled.hits, ...recalled.realtime].map((item) => ({
       layer: item.layer,
       file: item.file,

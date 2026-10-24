@@ -29,7 +29,7 @@ import { createDiaryWriter } from './organs/diary.js'
 import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
 import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
-import { appendDiary, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
+import { appendDiary, appendRaw, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
 import { startTimer } from './organs/proactive.js'
 
 const FALLBACK_VERSION = '0.1.0'
@@ -73,6 +73,21 @@ export function apply(ctx) {
     log: (message, extra) => appendLog(message, extra),
   })
   installBuiltins(registry)
+  registry.registerTool({
+    id: 'memory.raw',
+    description: '记一条原始记忆（不加工）：聊天、心里想的、看到的帖子、打的游戏、发的视频、看到的网页都行。只用于以后回查，不进提示词。',
+    schema: {
+      type: 'object',
+      properties: {
+        source: { type: 'string', enum: ['chat', 'thought', 'post', 'game', 'video', 'web', 'other'] },
+        text: { type: 'string' },
+        meta: { type: 'object' },
+      },
+      required: ['source', 'text'],
+    },
+    run: async ({ source, text, meta }) => appendRaw({ source, text, meta }),
+  })
+
   registry.registerTool({
     id: 'diary.write',
     description: '写今天的日记（追加到自己的 记忆/日记/YYYY-MM-DD.md）。第一人称、写具体的事和情绪，别写成汇报。',

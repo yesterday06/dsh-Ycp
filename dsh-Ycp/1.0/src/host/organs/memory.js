@@ -19,7 +19,7 @@
  * 写前备份到 状态/backups/，删除也先备份（软删）；文件名只接受单层 .md，
  * 挡掉 `..`、分隔符、控制字符——面板传什么进来都不能越出记忆目录。
  */
-import { existsSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { backupFile, homePaths, stamp, writeAtomic, appendLog } from '../kernel/paths.js'
 
@@ -28,6 +28,7 @@ export const LAYERS = {
   archive: { key: 'archive', dir: '归档记忆', label: '归档记忆' },
   realtime: { key: 'realtime', dir: '实时记忆', label: '实时记忆' },
   diary: { key: 'diary', dir: '日记', label: '日记' },
+  raw: { key: 'raw', dir: '原始记忆', label: '原始记忆' },
 }
 
 export const MAX_CARD_CHARS = 256 * 1024
@@ -214,6 +215,32 @@ function dayStamp(value) {
  * 往某天的日记追加一段；文件不存在就先建。
  * 每天一个 YYYY-MM-DD.md，段落带 HH:mm。
  */
+export const RAW_SOURCES = ['chat', 'thought', 'post', 'game', 'video', 'web', 'other']
+
+/**
+ * 原始记忆：当天一个文件，追加不覆盖。
+ * 和日记不同：这里什么都能记——聊天、心里想的、看到的帖子、打的游戏、发的视频。
+ * 只用于回查，不进提示词；重要的再提炼成卡。
+ */
+export function appendRaw(input = {}, options = {}) {
+  const source = RAW_SOURCES.includes(input.source) ? input.source : 'other'
+  const body = String(input.text ?? '').trim()
+  if (!body) return { ok: false, error: '原始记忆不能是空的' }
+  if (body.length > 20000) return { ok: false, error: '一次最多记 20000 字' }
+  const now = options.now instanceof Date ? options.now : new Date()
+  const name = `${dayStamp(now)}.md`
+  const dir = layerDir('raw')
+  mkdirSync(dir, { recursive: true })
+  const path = join(dir, name)
+  let existing = ''
+  try { existing = readFileSync(path, 'utf8') } catch { existing = '' }
+  const head = existing.trim() ? existing.replace(/\s*$/, '\n\n') : `# ${dayStamp(now)} 原始记忆\n\n`
+  const meta = input.meta && typeof input.meta === 'object' ? JSON.stringify(input.meta).slice(0, 500) : ''
+  const block = `## ${pad2(now.getHours())}:${pad2(now.getMinutes())} · ${source}\n\n${body}\n${meta ? `\n\`\`\`json\n${meta}\n\`\`\`\n` : ''}`
+  writeAtomic(path, head + block)
+  appendLog('追加原始记忆', { file: name, source, chars: body.length })
+  return { ok: true, file: name, source }
+}
 export function appendDiary(text, options = {}) {
   const body = String(text ?? '').trim()
   if (!body) return { ok: false, error: '写点什么再记' }
