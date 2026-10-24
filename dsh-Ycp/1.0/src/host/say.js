@@ -64,7 +64,8 @@ function noTextReason(finish) {
   return '模型报错，没给原因'
 }
 
-export function createSayService(ctx) {
+export function createSayService(ctx, options = {}) {
+  const toolRegistry = options.tools || null
   async function say(input, options = {}) {
     const now = options.now instanceof Date ? options.now : new Date()
     const text = String(input?.text ?? '').trim()
@@ -145,20 +146,65 @@ export function createSayService(ctx) {
       usedModel = `${model.provider}/${model.model}`
       try {
         const wantsOff = await reasoningOffSupported(llm, model.provider, model.model)
-        const stream = llm.stream({
-          provider: model.provider,
-          model: model.model,
-          system,
-          messages: [{ role: 'user', content: [{ type: 'text', text }] }],
-          temperature: 1,
-          sessionId: 'dsh-Ycp',
-          signal: AbortSignal.timeout(TIMEOUT_MS),
-          ...(wantsOff ? { reasoningEffort: 'off' } : {}),
-        })
-        for await (const chunk of stream) {
-          if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') pieces.push(chunk.text)
-          else if (chunk?.type === 'finish') finish = chunk.reason ?? null
+        const tools = toolRegistry && typeof toolRegistry.listTools === 'function'
+          ? toolRegistry.listTools()
+              .filter((tool) => tool && tool.schema && tool.id)
+              .map((tool) => ({ name: tool.id, description: String(tool.description || ''), parameters: tool.schema }))
+          : []
+        const messages = [{ role: 'user', content: [{ type: 'text', text }] }]
+        let finalText = ''
+        for (let round = 0; round < 4; round += 1) {
+          const calls = new Map()
+          let roundText = ''
+          const stream = llm.stream({
+            provider: model.provider,
+            model: model.model,
+            system,
+            messages,
+            temperature: 1,
+            sessionId: 'dsh-Ycp',
+            signal: AbortSignal.timeout(TIMEOUT_MS),
+            ...(wantsOff ? { reasoningEffort: 'off' } : {}),
+            ...(tools.length ? { tools } : {}),
+          })
+          for await (const chunk of stream) {
+            if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') roundText += chunk.text
+            else if (chunk?.type === 'tool-call-delta') {
+              const key = chunk.index ?? calls.size
+              const entry = calls.get(key) || { id: chunk.id, name: chunk.name || '', arguments: '' }
+              if (chunk.name) entry.name = chunk.name
+              if (chunk.argumentsDelta) entry.arguments += chunk.argumentsDelta
+              calls.set(key, entry)
+            } else if (chunk?.type === 'finish') finish = chunk.reason ?? null
+          }
+          finalText += roundText
+          const list = [...calls.values()].filter((call) => call.name)
+          if (list.length === 0) break
+          messages.push({
+            role: 'assistant',
+            id: 'm-' + Date.now() + '-' + round,
+            source: { kind: 'model', provider: model.provider, model: model.model },
+            content: [
+              ...(roundText ? [{ type: 'text', text: roundText }] : []),
+              ...list.map((call) => ({ type: 'tool-call', id: call.id, name: call.name, arguments: call.arguments || '{}' })),
+            ],
+          })
+          for (const call of list) {
+            let args = {}
+            try { args = JSON.parse(call.arguments || '{}') } catch { args = {} }
+            const result = toolRegistry ? await toolRegistry.invoke(call.name, args) : { ok: false, error: '没有可用的工具注册表' }
+            const content = JSON.stringify(result).slice(0, 4000)
+            messages.push({
+              role: 'tool',
+              id: 't-' + call.id,
+              source: { kind: 'tool', callId: call.id },
+              toolCallId: call.id,
+              isError: !result?.ok,
+              content: [{ type: 'text', text: content }],
+            })
+          }
         }
+        pieces.push(finalText)
       } catch (error) {
         const message = String(error?.message ?? error)
         appendLog('说话失败', { error: message })

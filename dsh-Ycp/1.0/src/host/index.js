@@ -256,7 +256,7 @@ export function apply(ctx) {
   const ledger = createLedger()
 
   // 桌宠对话/记账：纯文件桥，不依赖面板登录态。
-  const sayService = createSayService(ctx)
+  const sayService = createSayService(ctx, { tools: registry })
   const bridge = createPetBridge({ say: sayService, voice, ledger })
   bridge.start()
 
