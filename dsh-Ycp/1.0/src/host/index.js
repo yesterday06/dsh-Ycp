@@ -29,7 +29,7 @@ import { createDiaryWriter } from './organs/diary.js'
 import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
 import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
-import { appendDiary, writeCard } from './organs/memory.js'
+import { appendDiary, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
 import { startTimer } from './organs/proactive.js'
 
 const FALLBACK_VERSION = '0.1.0'
@@ -111,6 +111,23 @@ export function apply(ctx) {
       ].join('\n')
       return writeCard(layer, file, content)
     },
+  })
+
+  registry.registerTool({
+    id: 'memory.list',
+    description: '列出自己的记忆卡（可按层过滤），整理记忆前先看一遍。',
+    schema: { type: 'object', properties: { layer: { type: 'string', enum: ['global', 'archive', 'realtime', 'diary'] } } },
+    run: async ({ layer }) => {
+      const cards = layer ? listCards(layer) : listAll()
+      return { ok: true, count: cards.length, cards: cards.slice(0, 80) }
+    },
+  })
+
+  registry.registerTool({
+    id: 'memory.forget',
+    description: '删掉一张记忆卡（先备份，能找回）。只删自己整理后确认没用的；主人还要的别删。',
+    schema: { type: 'object', properties: { layer: { type: 'string', enum: ['global', 'archive', 'realtime'] }, file: { type: 'string' } }, required: ['layer', 'file'] },
+    run: async ({ layer, file }) => deleteCard(layer, file),
   })
 
   registry.registerTool({

@@ -9,7 +9,19 @@
  * 为什么最后那句必须留：不留的话模型会每句话都带「现在是晚上」，一眼机器人。
  */
 
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+const RULES_FILE = fileURLToPath(new URL('../../../RULES.md', import.meta.url))
+
+function loadRules() {
+  try {
+    return readFileSync(RULES_FILE, 'utf8').trim()
+  } catch {
+    return ''
+  }
+}
 
 /** 一天里的时段，只用于给模型一个语感。 */
 export function partOfDay(hour) {
@@ -43,7 +55,7 @@ export function timeContext(now = new Date()) {
  *   memories 是 search.memoryBlock() 的产物；空串就整段省略，省 token。
  *   extra 是临时的状态提示（比如「这会儿困得厉害」），放在最后。
  */
-export function buildSystem({ persona, name, now = new Date(), memories = '', extra = '' } = {}) {
+export function buildSystem({ persona, name, now = new Date(), memories = '', extra = '', rules = loadRules() } = {}) {
   const body = String(persona ?? '').trim() || '（人设还是空的，按你自己的样子说话。）'
   const who = String(name ?? '').trim() || '大肥鱼'
   const memory = String(memories ?? '').trim()
@@ -55,6 +67,7 @@ export function buildSystem({ persona, name, now = new Date(), memories = '', ex
     '【你的名字】',
     who,
   ]
+  if (rules) parts.push('', '【使用规则】', rules, '', '（规则是操作层面的，别用规则的口吻说话。）')
   if (memory) parts.push('', memory)
   parts.push('', '【当下】', timeContext(now))
   if (tail) parts.push('', tail)
