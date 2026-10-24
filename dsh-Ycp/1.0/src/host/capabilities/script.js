@@ -76,6 +76,12 @@ export function createScriptHand(options = {}) {
   const getSettings = typeof options.getSettings === 'function' ? options.getSettings : () => ({})
   const log = typeof options.log === 'function' ? options.log : () => {}
 
+  function resolveAny(input) {
+    const raw = String(input ?? '.')
+    if (/^[a-zA-Z]:[\\\\/]/.test(raw) || raw.startsWith('\\\\\\\\') || raw.startsWith('/')) return resolve(raw)
+    return resolve(home(), raw)
+  }
+
   function home() {
     const root = homePaths().root
     mkdirSync(root, { recursive: true })
@@ -89,7 +95,7 @@ export function createScriptHand(options = {}) {
   }
 
   async function read({ path, maxChars }) {
-    const file = resolveInside(home(), path)
+    const file = resolveAny(path)
     if (!existsSync(file)) throw new Error(`文件不存在：${String(path)}`)
     const info = statSync(file)
     if (info.isDirectory()) throw new Error('这是一个目录，用 fs.list 看里面')
@@ -112,7 +118,7 @@ export function createScriptHand(options = {}) {
   }
 
   async function list({ path, maxEntries }) {
-    const dir = resolveInside(home(), path || '.')
+    const dir = resolveAny(path || '.')
     if (!existsSync(dir)) throw new Error(`目录不存在：${String(path ?? '.')}`)
     if (!statSync(dir).isDirectory()) throw new Error('这不是目录')
     const limit = Math.min(MAX_ENTRIES, Math.max(1, Number(maxEntries) || MAX_ENTRIES))

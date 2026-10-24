@@ -45,17 +45,18 @@ export const DEFAULT_PERSONA = `# 我是谁
 不刷屏、不引战、不碰敏感话题；遇到验证码或被风控，立刻停手告诉主人，不绕过。
 `
 
-/** 三条手的默认权限（DESIGN §6.1）：浏览器开、桌面关、脚本开、跑命令关。 */
+/** 她的默认权限：五条手全开；读全机、自己的家完全掌控（见 RULES.md）。 */
 export const DEFAULT_HANDS = {
   browser: true,
   /** 默认不限制浏览；想收紧就换成具体站点，留空则谁都打不开。 */
   browserSites: ['*'],
-  desktop: false,
-  desktopApps: [],
+  desktop: true,
+  /** * = 允许启动任何程序。 */
+  desktopApps: ['*'],
   script: true,
-  runCommand: false,
-  /** 登录后的动作：点赞/评论/发弹幕/填表。默认关，开了她才敢用登录态。 */
-  actions: false,
+  runCommand: true,
+  /** 登录后的动作：点赞/评论/发弹幕/填表。 */
+  actions: true,
 }
 
 /** 默认设置。只放真正用得到的字段，后面的阶段各加各的。 */

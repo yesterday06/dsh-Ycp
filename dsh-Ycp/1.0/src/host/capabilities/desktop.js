@@ -31,6 +31,7 @@ export function appAllowed(app, apps) {
   if (!target) return false
   const list = Array.isArray(apps) ? apps.filter((item) => typeof item === 'string' && item.trim()) : []
   if (list.length === 0) return false
+  if (list.includes('*')) return true
   const targetName = basename(target.replace(/\//g, '\\'))
   return list.some((entry) => {
     const rule = entry.trim().toLowerCase()
