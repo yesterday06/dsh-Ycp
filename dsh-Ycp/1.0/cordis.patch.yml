@@ -1,0 +1,6 @@
+# dsh-Ycp · 大肥鱼
+# 插入一个 Host 行；浏览器半由 package.json 的 dsh.client 声明。
+# 侧边栏入口在 sidebar.panellist（id=dsh-Ycp），主面板在 main（key=dsh-Ycp）。
+- insert:
+    - id: dsh-Ycp
+      name: 'dsh-Ycp'

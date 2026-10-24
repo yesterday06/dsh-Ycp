@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>大肥鱼</title>
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; user-select: none; }
+  body { width: 200px; height: 200px; position: relative; cursor: grab; }
+  body.dragging { cursor: grabbing; }
+  .stage { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px; box-sizing: border-box; }
+  .fish { width: 186px; height: 158px; transform-origin: 50% 70%; animation: bob 2.6s ease-in-out infinite; filter: drop-shadow(0 6px 10px rgba(10, 40, 70, .25)); }
+  .fish.pop { animation: pop .45s ease-out; }
+  body.swim .fish { animation: swim 3.4s ease-in-out infinite; }
+  body.nap .fish { animation: nap 4.5s ease-in-out infinite; opacity: .88; }
+  .bubble {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%) scale(.9);
+    background: rgba(255,255,255,.96); color: #1c3b52; border-radius: 12px;
+    padding: 5px 11px; font: 12px/1.4 "Microsoft YaHei", system-ui, sans-serif;
+    box-shadow: 0 4px 12px rgba(0,0,0,.18); opacity: 0; transition: opacity .18s, transform .18s;
+    white-space: nowrap; pointer-events: none;
+  }
+  .bubble.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  .zzz { position: absolute; right: 18px; top: 22px; font: 700 16px/1 system-ui; color: #6ea8cc; opacity: 0; }
+  body.nap .zzz { opacity: 1; animation: zzz 3s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-7px) } }
+  @keyframes swim { 0%,100% { transform: translateX(-8px) rotate(-4deg) } 50% { transform: translateX(8px) rotate(4deg) } }
+  @keyframes nap { 0%,100% { transform: translateY(2px) scale(.985) } 50% { transform: translateY(6px) scale(.975) } }
+  @keyframes zzz { 0% { transform: translateY(0); opacity: .2 } 50% { transform: translateY(-8px); opacity: 1 } 100% { transform: translateY(-16px); opacity: 0 } }
+  @keyframes pop { 0% { transform: scale(1) } 40% { transform: scale(1.14) } 100% { transform: scale(1) } }
+</style>
+</head>
+<body>
+  <div class="zzz">z z</div>
+  <div class="bubble" id="bubble">咕噜～</div>
+  <div class="stage">
+    <svg class="fish" id="fish" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg" aria-label="大肥鱼">
+      <defs>
+        <linearGradient id="body" x1="40" y1="40" x2="150" y2="140" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#7CD3F7" />
+          <stop offset="1" stop-color="#2A8BCB" />
+        </linearGradient>
+      </defs>
+      <path d="M30 90 C18 78 8 66 4 52 C2 72 6 82 12 90 C6 98 2 110 4 130 C10 112 20 100 30 90 Z" fill="#17608F" />
+      <path d="M30 90 C30 55 62 38 96 38 C132 38 160 58 164 88 C168 120 138 142 100 142 C62 142 30 122 30 90 Z" fill="url(#body)" />
+      <path d="M52 108 C64 130 88 138 108 132 C128 126 146 112 156 96 C150 122 128 138 100 138 C76 138 60 126 52 108 Z" fill="#D9F3FF" opacity=".75" />
+      <path d="M78 40 C86 24 104 20 116 30 C104 30 90 34 84 44 Z" fill="#17608F" />
+      <path d="M92 96 C102 88 116 88 122 96 C114 108 100 108 92 102 Z" fill="#17608F" opacity=".9" />
+      <circle cx="146" cy="78" r="13" fill="#FFFFFF" />
+      <circle cx="149" cy="80" r="6.4" fill="#12303F" />
+      <circle cx="151.4" cy="76.6" r="2.2" fill="#FFFFFF" />
+      <ellipse cx="132" cy="97" rx="9" ry="4.6" fill="#F2A6C0" opacity=".55" />
+      <path d="M158 92 C164 93 165 97 161 100" fill="none" stroke="#12303F" stroke-width="2.2" stroke-linecap="round" />
+      <circle cx="178" cy="46" r="4.4" fill="#A8E2FA" opacity=".9" />
+      <circle cx="186" cy="32" r="3" fill="#A8E2FA" opacity=".7" />
+      <circle cx="180" cy="20" r="2" fill="#A8E2FA" opacity=".55" />
+    </svg>
+  </div>
+<script>
+  const body = document.body
+  const bubble = document.getElementById('bubble')
+  const fish = document.getElementById('fish')
+  const pet = window.ycpPet || { config: {}, dragStart() {}, dragMove() {}, dragEnd() {}, reaction() {}, menu() {}, onState() {} }
+
+  let dragging = false
+  let moved = 0
+  let startedAt = 0
+  let samples = []
+  let bubbleTimer = null
+
+  const lines = ['咕噜～', '在呢', '嗯？', '别戳我', '水有点凉', '今天吃什么']
+
+  function playClick() {
+    try {
+      const config = pet.config || {}
+      if (!config.clickUrl || !config.volume) return
+      const audio = new Audio(config.clickUrl)
+      audio.volume = Math.max(0, Math.min(1, config.volume / 100))
+      audio.play().catch(() => {})
+    } catch { /* 没有声音也照常卖萌 */ }
+  }
+
+  function say(text) {
+    bubble.textContent = text
+    bubble.classList.add('show')
+    if (bubbleTimer) clearTimeout(bubbleTimer)
+    bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 1300)
+  }
+
+  function pop() {
+    fish.classList.remove('pop')
+    void fish.getBoundingClientRect()
+    fish.classList.add('pop')
+  }
+
+  body.addEventListener('mousedown', (event) => {
+    if (event.button !== 0) return
+    dragging = true
+    moved = 0
+    startedAt = Date.now()
+    samples = [{ x: event.screenX, y: event.screenY, t: performance.now() }]
+    body.classList.add('dragging')
+    pet.dragStart({ x: event.screenX, y: event.screenY })
+    event.preventDefault()
+  })
+
+  window.addEventListener('mousemove', (event) => {
+    if (!dragging) return
+    moved += Math.abs(event.movementX || 0) + Math.abs(event.movementY || 0)
+    samples.push({ x: event.screenX, y: event.screenY, t: performance.now() })
+    if (samples.length > 8) samples.shift()
+    pet.dragMove({ x: event.screenX, y: event.screenY })
+  })
+
+  window.addEventListener('mouseup', (event) => {
+    if (!dragging) return
+    dragging = false
+    body.classList.remove('dragging')
+    const duration = Date.now() - startedAt
+    if (moved < 5 && duration < 450) {
+      pet.reaction()
+      playClick()
+      pop()
+      say(lines[Math.floor(Math.random() * lines.length)])
+      pet.dragEnd({ vx: 0, vy: 0 })
+      return
+    }
+    const recent = samples.slice(-4)
+    let vx = 0
+    let vy = 0
+    if (recent.length >= 2) {
+      const first = recent[0]
+      const last = recent[recent.length - 1]
+      const dt = Math.max(16, last.t - first.t)
+      vx = ((last.x - first.x) / dt) * 16
+      vy = ((last.y - first.y) / dt) * 16
+    }
+    const cap = 28
+    vx = Math.max(-cap, Math.min(cap, vx))
+    vy = Math.max(-cap, Math.min(cap, vy))
+    pet.dragEnd({ vx, vy })
+  })
+
+  window.addEventListener('contextmenu', (event) => {
+    event.preventDefault()
+    pet.menu()
+  })
+
+  pet.onState((value) => {
+    body.classList.remove('swim', 'nap')
+    if (value === 'swim') body.classList.add('swim')
+    if (value === 'nap') body.classList.add('nap')
+    if (value === 'idle') say('醒啦')
+  })
+
+  // 没人理她的时候，偶尔自己嘀咕一句——比干站着像活的。
+  const idleLines = ['水有点凉…', '今天也没下雨', '有人在吗', '发会儿呆', '肚子有点饿', '屏幕好亮']
+  function scheduleIdle() {
+    const delay = 45000 + Math.random() * 75000
+    setTimeout(() => {
+      if (!dragging && !body.classList.contains('nap') && !bubble.classList.contains('show')) {
+        say(idleLines[Math.floor(Math.random() * idleLines.length)])
+      }
+      scheduleIdle()
+    }, delay)
+  }
+  scheduleIdle()
+</script>
+</body>
+</html>

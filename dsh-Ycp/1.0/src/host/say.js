@@ -1,0 +1,181 @@
+/**
+ * dsh-Ycp · 试说一句（Host 半）—— P03 的 /say 后端。
+ *
+ * 一次说话的流程：
+ *   1. 校验输入、总开关
+ *   2. 模型跟随当前对话（agentDefaultModel.currentSelection），不另配 key
+ *   3. 拼 system（人设全文 + 名字 + 当下）
+ *   4. ctx.llm.stream 收到文字增量，拼成一句话返回
+ *   5. 超时 60 秒；失败给结构化原因，不编文案
+ *
+ * 依赖全部走可选读取（ctx.get），插件没有 llm 也能加载。
+ */
+import { appendLog, loadPersona, loadSettings } from './kernel/paths.js'
+import { commitSay, checkSay, loadRateState } from './organs/gate.js'
+import { loadSchedule } from './organs/schedule.js'
+import { recordSay, moodSummary } from './organs/mood.js'
+import { memoryBlock, search } from './organs/search.js'
+import { buildSystem } from './kernel/prompt.js'
+
+const TIMEOUT_MS = 60_000
+const MAX_INPUT = 2000
+
+/** 可选读服务：没注入时 ctx.get 会抛，统一吞掉。 */
+function service(ctx, name) {
+  try {
+    return ctx?.get?.(name)
+  } catch {
+    return undefined
+  }
+}
+
+/** 当前对话的模型；没配置返回 null。 */
+export function currentModel(ctx) {
+  try {
+    const selection = service(ctx, 'agentDefaultModel')?.currentSelection?.()
+    if (selection?.provider && selection?.model) {
+      return { provider: selection.provider, model: selection.model }
+    }
+  } catch {
+    /* 服务未就绪 */
+  }
+  return null
+}
+
+/** 当前模型是否声明支持 reasoning effort（含 off）；查不到就当不支持，宁可不传。 */
+async function reasoningOffSupported(llm, provider, model) {
+  if (typeof llm?.resolveModelInfo !== 'function') return false
+  try {
+    const info = await llm.resolveModelInfo(provider, model)
+    return Boolean(info?.reasoning?.efforts?.some((effort) => effort?.id === 'off'))
+  } catch {
+    return false
+  }
+}
+
+/** 没有正文时，把终止块翻成人话。 */
+function noTextReason(finish) {
+  const { kind, failure } = finish ?? {}
+  if (kind === 'aborted') return '等太久了，这次没说完'
+  if (kind === 'max-tokens') return '话说满了，没吐出正文'
+  if (kind !== 'error') return '模型没说话'
+  if (typeof failure?.message === 'string' && failure.message.trim()) return failure.message
+  if (typeof failure?.code === 'string' && failure.code.trim()) return failure.code
+  return '模型报错，没给原因'
+}
+
+export function createSayService(ctx) {
+  async function say(input, options = {}) {
+    const now = options.now instanceof Date ? options.now : new Date()
+    const text = String(input?.text ?? '').trim()
+    if (!text) return { ok: false, reason: 'empty', error: '说点什么再试' }
+    if (text.length > MAX_INPUT) return { ok: false, reason: 'too-long', error: `一次最多 ${MAX_INPUT} 字` }
+
+    const settings = loadSettings()
+    const schedule = loadSchedule()
+    const rate = loadRateState()
+
+    // 五道闸：总开关 → 睡眠 → 安静时段 →（手权限对说话不适用）→ 频率
+    const gate = checkSay({ settings, schedule, now, rate })
+    if (!gate.allow) {
+      appendLog('被闸门挡住', { reason: gate.reason, used: gate.used, limit: gate.limit })
+      return {
+        ok: false,
+        reason: gate.reason,
+        error: gate.error,
+        ...(gate.retryAfterSec ? { retryAfterSec: gate.retryAfterSec } : {}),
+      }
+    }
+
+    const model = currentModel(ctx)
+    if (!model) return { ok: false, reason: 'provider-missing', error: '当前对话还没选模型' }
+
+    const llm = service(ctx, 'llm')
+    if (!llm || typeof llm.stream !== 'function') {
+      return { ok: false, reason: 'llm-missing', error: 'LLM 服务不可用' }
+    }
+
+    // 放行就记账：模型请求马上要花出去了，失败也算一次尝试。
+    commitSay(rate, now)
+
+    // 开口前先想起事：全局 + 归档按分数取 top-k，实时卡必读，日记不参与。
+    const recalled = search(text, { topK: settings.memoryTopK, maxChars: settings.memoryMaxChars })
+
+    const system = buildSystem({
+      persona: loadPersona(),
+      name: settings.name,
+      memories: memoryBlock(recalled),
+      extra: gate.sleepy
+        ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
+        : '',
+    })
+    const wantsOff = await reasoningOffSupported(llm, model.provider, model.model)
+    const started = Date.now()
+    const pieces = []
+    let finish = null
+
+    try {
+      const stream = llm.stream({
+        provider: model.provider,
+        model: model.model,
+        system,
+        messages: [{ role: 'user', content: [{ type: 'text', text }] }],
+        temperature: 1,
+        sessionId: 'dsh-Ycp',
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        ...(wantsOff ? { reasoningEffort: 'off' } : {}),
+      })
+      for await (const chunk of stream) {
+        if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') pieces.push(chunk.text)
+        else if (chunk?.type === 'finish') finish = chunk.reason ?? null
+      }
+    } catch (error) {
+      const message = String(error?.message ?? error)
+      appendLog('说话失败', { error: message })
+      return { ok: false, reason: 'generate-error', error: message }
+    }
+
+    const reply = pieces.join('').trim()
+    if (!reply) {
+      const error = noTextReason(finish)
+      appendLog('说话没正文', { kind: finish?.kind ?? 'unknown', error })
+      return { ok: false, reason: 'generate-error', error }
+    }
+
+    const ms = Date.now() - started
+    const recalledList = [...recalled.hits, ...recalled.realtime].map((item) => ({
+      layer: item.layer,
+      file: item.file,
+      title: item.title,
+      score: item.score,
+    }))
+
+    // 说完一句就结账：体力掉、饿一点、心情好一点、今天多说一句。
+    let mood = null
+    try {
+      mood = moodSummary(recordSay(now, schedule))
+    } catch (error) {
+      appendLog('心情结算失败', { error: String(error?.message ?? error) })
+    }
+
+    appendLog('说话', {
+      chars: reply.length,
+      model: `${model.provider}/${model.model}`,
+      ms,
+      sleepy: Boolean(gate.sleepy),
+      recalled: recalledList.map((item) => item.file),
+    })
+    return {
+      ok: true,
+      text: reply,
+      model,
+      ms,
+      awake: !gate.sleepy,
+      sleepy: Boolean(gate.sleepy),
+      recalled: recalledList,
+      mood,
+    }
+  }
+
+  return { say, currentModel: () => currentModel(ctx) }
+}
