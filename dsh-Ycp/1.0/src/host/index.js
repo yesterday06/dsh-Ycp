@@ -29,7 +29,8 @@ import { createDiaryWriter } from './organs/diary.js'
 import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
 import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
-import { appendDiary, appendRaw, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
+import { appendDiary, appendRaw, consolidationBundle, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
+import { loadHistory } from './organs/chatlog.js'
 import { startTimer } from './organs/proactive.js'
 
 const FALLBACK_VERSION = '0.1.0'
@@ -125,6 +126,16 @@ export function apply(ctx) {
         '',
       ].join('\n')
       return writeCard(layer, file, content)
+    },
+  })
+
+  registry.registerTool({
+    id: 'memory.consolidate',
+    description: '整理记忆的素材包：最近对话 + 今天的原始记忆 + 现有卡标题。准备写卡/写日记前先调它。',
+    schema: { type: 'object', properties: {} },
+    run: async () => {
+      const bundle = consolidationBundle({ chat: loadHistory({ maxMessages: 20, maxChars: 8000 }) })
+      return { ok: true, ...bundle }
     },
   })
 

@@ -14,7 +14,7 @@ import { appendLog, loadPersona, loadSettings } from './kernel/paths.js'
 import { commitSay, checkSay, loadRateState } from './organs/gate.js'
 import { loadSchedule } from './organs/schedule.js'
 import { recordSay, moodSummary } from './organs/mood.js'
-import { appendRaw, bumpMemoryNudge, memoryNudgeText, resetMemoryNudge } from './organs/memory.js'
+import { appendRaw, bumpMemoryNudge, identityBlock, memoryNudgeText, resetMemoryNudge } from './organs/memory.js'
 import { appendTurn, loadHistory } from './organs/chatlog.js'
 import { memoryBlock, search } from './organs/search.js'
 import { buildSystem } from './kernel/prompt.js'
@@ -71,6 +71,7 @@ export function createSayService(ctx, options = {}) {
   async function say(input, options = {}) {
     const now = options.now instanceof Date ? options.now : new Date()
     const text = String(input?.text ?? '').trim()
+    const channel = String(input?.channel || 'panel')
     if (!text) return { ok: false, reason: 'empty', error: '说点什么再试' }
     if (text.length > MAX_INPUT) return { ok: false, reason: 'too-long', error: `一次最多 ${MAX_INPUT} 字` }
 
@@ -107,7 +108,7 @@ export function createSayService(ctx, options = {}) {
     const system = buildSystem({
       persona: loadPersona(),
       name: settings.name,
-      memories: memoryBlock(recalled),
+      memories: [identityBlock(), memoryBlock(recalled)].filter(Boolean).join('\n\n'),
       extra: [
         gate.sleepy
           ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
@@ -247,7 +248,7 @@ export function createSayService(ctx, options = {}) {
 
     const ms = Date.now() - started
     try {
-      appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms } })
+      appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms, channel } })
       appendTurn(text, reply)
       bumpMemoryNudge()
     } catch { /* 原始记忆记不上不影响说话 */ }

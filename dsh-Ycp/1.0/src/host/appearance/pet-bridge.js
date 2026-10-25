@@ -104,7 +104,7 @@ export function createPetBridge({ say, voice, ledger, intervalMs = 1200 } = {}) 
     const reply = { ok: false, id, text: '', voiceFile: null, error: null }
     try {
       const result = await Promise.race([
-        say.say({ text: request.text }),
+        say.say({ text: request.text, channel: 'pet' }),
         new Promise((resolve) => setTimeout(() => resolve({ ok: false, error: '想太久了，先歇会儿' }), 60000)),
       ])
       if (result?.ok) {

@@ -146,6 +146,54 @@ export function listAll() {
 }
 
 /** 读一张卡；不存在返回 null。 */
+/**
+ * 记忆核心：不靠“这一句搜到什么”，而是每次都把她的“我是谁、最近在干嘛、
+ * 一直记得的事、最近写的日记”带上。聊天框只是入口，这些才是本体。
+ */
+export function identityBlock({ maxCards = 6, maxChars = 6000 } = {}) {
+  const parts = []
+
+  const realtime = listCards('realtime').slice(0, 2)
+  for (const summary of realtime) {
+    const card = readCard('realtime', summary.file)
+    const body = String(card?.content ?? '').replace(/^---[\s\S]*?---\s*/,'').trim()
+    if (body) parts.push('【我最近在做什么】\n' + body.slice(0, 1000))
+  }
+
+  const diary = listCards('diary')[0]
+  if (diary) {
+    const card = readCard('diary', diary.file)
+    const body = String(card?.content ?? '').trim()
+    if (body) parts.push('【我最近写的日记】\n' + body.slice(-700))
+  }
+
+  const globals = listCards('global').slice(0, maxCards)
+  if (globals.length) {
+    const lines = globals.map((item) => `- ${item.title}${item.description ? '：' + item.description : ''}`)
+    parts.push('【我一直记得的事】\n' + lines.join('\n'))
+  }
+
+  return parts.join('\n\n').slice(0, maxChars)
+}
+
+/** 整理素材：最近对话 + 今天的原始记忆 + 现有卡标题，给她做“实时整理”用。 */
+export function consolidationBundle({ chat = [], rawLimit = 40 } = {}) {
+  const cards = []
+  for (const [layer, items] of Object.entries(listAll())) {
+    for (const item of items.slice(0, 40)) cards.push(`${layer}/${item.file}｜${item.title}`)
+  }
+  const raw = listCards('raw')[0]
+  let rawText = ''
+  if (raw) {
+    const card = readCard('raw', raw.file)
+    rawText = String(card?.content ?? '').slice(-4000)
+  }
+  return {
+    chat: chat.slice(-20).map((item) => `${item.role === 'assistant' ? '我' : '主人'}：${item.text}`).join('\n'),
+    raw: rawText,
+    cards: cards.slice(0, 80),
+  }
+}
 export function readCard(layer, file) {
   const name = safeFileName(file)
   const dir = layerDir(layer)
@@ -271,7 +319,7 @@ export function memoryNudgeText(now = Date.now()) {
     '【记忆提醒】该整理记忆了。',
     `距上次整理：${state.turns} 轮 / 约 ${hours} 小时。`,
     '回完这一句先做三件事，再继续聊：',
-    '1. 值得长期留的，用 memory.card 写/更新一张卡；',
+    '1. 先调 memory.consolidate 拿素材包；值得长期留的，用 memory.card 写/更新一张卡；',
     '2. 今天发生的事，用 diary.write 写进日记；',
     '3. 想通了什么，用 persona.grow 记一句。',
     '整理完提醒会自动消失。',
