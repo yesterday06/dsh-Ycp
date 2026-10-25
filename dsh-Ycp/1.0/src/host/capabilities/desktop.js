@@ -138,6 +138,19 @@ export function createDesktopHand(options = {}) {
     return result
   }
 
+  async function windowControl(input = {}) {
+    const result = await run('window', {
+      window: String(input.window ?? '').trim(),
+      ...(input.maximize ? { maximize: true } : {}),
+      ...(input.restore ? { restore: true } : {}),
+      ...(Number.isFinite(Number(input.x)) ? { x: Number(input.x) } : {}),
+      ...(Number.isFinite(Number(input.y)) ? { y: Number(input.y) } : {}),
+      ...(Number.isFinite(Number(input.width)) ? { width: Number(input.width) } : {}),
+      ...(Number.isFinite(Number(input.height)) ? { height: Number(input.height) } : {}),
+    })
+    remember('window', String(input.window ?? ''))
+    return result
+  }
   async function uiaSet(name, value, window) {
     const key = String(name ?? '').trim()
     if (!key) throw new Error('要写哪个输入框？')
@@ -232,7 +245,7 @@ export function createDesktopHand(options = {}) {
     return result
   }
 
-  return { status, info, uia, uiaClick, uiaSet, screenshot, move, click, drag, type, key, focus, clipboard, launch }
+  return { status, info, windowControl, uia, uiaClick, uiaSet, screenshot, move, click, drag, type, key, focus, clipboard, launch }
 }
 
 /** 把桌面动作挂进注册表（每条都要 desktop 这条手开着）。 */
@@ -280,6 +293,22 @@ export function installDesktopTools(registry, hand) {
         required: ['name', 'value'],
       },
       run: async ({ name, value, window }) => hand.uiaSet(name, value, window),
+    },
+    {
+      id: 'desktop.window',
+      description: '把一个窗口移动/缩放到屏幕内，或最大化/还原；操作前先把窗口摆好，输入框才不会跑到屏幕外',
+      hand: 'desktop',
+      schema: {
+        type: 'object',
+        properties: {
+          window: { type: 'string', description: '窗口标题的一部分' },
+          x: { type: 'integer' }, y: { type: 'integer' },
+          width: { type: 'integer' }, height: { type: 'integer' },
+          maximize: { type: 'boolean' }, restore: { type: 'boolean' },
+        },
+        required: ['window'],
+      },
+      run: async (args) => hand.windowControl(args),
     },
     {
       id: 'desktop.screenshot',

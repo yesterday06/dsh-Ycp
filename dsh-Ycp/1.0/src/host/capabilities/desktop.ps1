@@ -32,7 +32,7 @@ using System.Text;
 public class YcpWin {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);`r`n  [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int cmd);
   [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
@@ -284,7 +284,28 @@ switch ($action) {
       Fail ("element cannot set value: " + $needle)
     }
   }
-  default { Fail ("unknown action: " + $action) }
+  'window' {
+    $proc = Get-Process | Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle -like ("*" + [string]$p.window + "*") } | Select-Object -First 1
+    if (-not $proc) { Fail ("window not found: " + [string]$p.window) }
+    $hwnd = $proc.MainWindowHandle
+    if ($p.maximize) { [void][YcpWin]::ShowWindow($hwnd, 3) }
+    elseif ($p.restore) { [void][YcpWin]::ShowWindow($hwnd, 9) }
+    else {
+      $x = if ($null -ne $p.x) { [int]$p.x } else { 80 }
+      $y = if ($null -ne $p.y) { [int]$p.y } else { 60 }
+      $w = if ($null -ne $p.width) { [int]$p.width } else { 1100 }
+      $h = if ($null -ne $p.height) { [int]$p.height } else { 760 }
+      [void][YcpWin]::SetWindowPos($hwnd, [IntPtr]::Zero, $x, $y, $w, $h, 0x0040)
+    }
+    Start-Sleep -Milliseconds 300
+    $el = [System.Windows.Automation.AutomationElement]::FromHandle($hwnd)
+    $r = $el.Current.BoundingRectangle
+    $result.title = $proc.MainWindowTitle
+    $result.x = [int]$r.X
+    $result.y = [int]$r.Y
+    $result.width = [int]$r.Width
+    $result.height = [int]$r.Height
+  }  default { Fail ("unknown action: " + $action) }
 }
 
 Write-Output ($result | ConvertTo-Json -Compress -Depth 5)

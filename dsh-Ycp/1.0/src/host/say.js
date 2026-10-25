@@ -181,7 +181,7 @@ export function createSayService(ctx, options = {}) {
         const CATALOG_IDS = [
           'memory.card', 'memory.raw', 'memory.list', 'memory.forget', 'memory.consolidate',
           'diary.write', 'persona.grow', 'name.set', 'signature.set', 'schedule.set', 'proactive.set',
-          'qq.send', 'desktop.ui', 'desktop.clickText', 'desktop.setValue', 'desktop.launch', 'browser.login', 'browser.goto', 'browser.text', 'browser.click',
+          'qq.send', 'desktop.ui', 'desktop.clickText', 'desktop.setValue', 'desktop.window', 'desktop.launch', 'browser.login', 'browser.goto', 'browser.text', 'browser.click',
           'bili.comment', 'bili.like', 'bili.dynamic', 'site.api',
         ]
         const catalog = toolRegistry && typeof toolRegistry.listTools === 'function'
