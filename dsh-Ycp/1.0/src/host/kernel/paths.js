@@ -63,9 +63,11 @@ export const DEFAULT_HANDS = {
 export const DEFAULT_SETTINGS = {
   name: INSTANCE_NAME,
   enabled: true,
-  followCurrentModel: true,
   memoryTopK: 2,
   memoryMaxChars: 600,
+  memoryCoreChars: 1200,
+  memoryRecallChars: 900,
+  autoReflect: true,
   sayPerHour: 20,
   hands: DEFAULT_HANDS,
   proactive: { enabled: false, everyMin: 60, dailyLimit: 10 },
@@ -86,6 +88,8 @@ const SETTING_KEYS = new Set(Object.keys(DEFAULT_SETTINGS))
 const NUMBER_SETTINGS = {
   memoryTopK: { lo: 1, hi: 5 },
   memoryMaxChars: { lo: 100, hi: 2000 },
+  memoryCoreChars: { lo: 400, hi: 3000 },
+  memoryRecallChars: { lo: 200, hi: 2000 },
   sayPerHour: { lo: 1, hi: 200 },
 }
 
@@ -333,7 +337,7 @@ export function loadSettings() {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out
   const name = normalizeName(raw.name)
   if (name) out.name = name
-  for (const key of ['enabled', 'followCurrentModel']) {
+  for (const key of ['enabled', 'autoReflect']) {
     if (typeof raw[key] === 'boolean') out[key] = raw[key]
   }
   for (const [key, range] of Object.entries(NUMBER_SETTINGS)) {
@@ -476,7 +480,7 @@ export function saveSettings(patch) {
     if (!name) return { ok: false, error: '名字要是 1–24 个字符，且不能带控制字符' }
     next.name = name
   }
-  for (const key of ['enabled', 'followCurrentModel']) {
+  for (const key of ['enabled', 'autoReflect']) {
     if (!(key in patch)) continue
     if (typeof patch[key] !== 'boolean') return { ok: false, error: `${key} 必须是 true / false` }
     next[key] = patch[key]

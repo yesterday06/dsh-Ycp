@@ -127,7 +127,10 @@ export function createSayService(ctx, options = {}) {
       .map((item) => item.text)
       .join('\n')
     const query = recentUser ? recentUser + '\n' + text : text
-    const recalled = contextFor(query)
+    const recalled = contextFor(query, {
+      coreBudget: settings.memoryCoreChars,
+      recallBudget: settings.memoryRecallChars,
+    })
 
     // 状态进语气：体力 / 心情 / 饿，不报数字，只影响怎么说话。
     let moodLine = ''

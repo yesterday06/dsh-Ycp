@@ -323,6 +323,9 @@ window.__ModuleLoader__.load({
       const [apiMsg, setApiMsg] = React.useState('')
       const [signature, setSignature] = React.useState('')
       const [sigMsg, setSigMsg] = React.useState('')
+      const [coreChars, setCoreChars] = React.useState(1200)
+      const [recallChars, setRecallChars] = React.useState(900)
+      const [autoReflect, setAutoReflect] = React.useState(true)
       const lowSoundPlayed = React.useRef(false)
 
       const load = React.useCallback(async () => {
@@ -331,6 +334,9 @@ window.__ModuleLoader__.load({
           setState(data)
           setName(data.settings.name)
           setEnabled(data.settings.enabled)
+          setCoreChars(Number(data.settings.memoryCoreChars) || 1200)
+          setRecallChars(Number(data.settings.memoryRecallChars) || 900)
+          setAutoReflect(data.settings.autoReflect !== false)
           if (data.settings.model) setApiForm({ baseUrl: data.settings.model.baseUrl || '', apiKey: data.settings.model.apiKey || '', model: data.settings.model.model || '' })
           setSignature(data.settings.signature || '')
           setError('')
@@ -444,7 +450,16 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setSaved('')
         try {
-          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ name, enabled }) })
+          const result = await call('/settings', {
+            method: 'PUT',
+            body: JSON.stringify({
+              name,
+              enabled,
+              memoryCoreChars: Number(coreChars) || 1200,
+              memoryRecallChars: Number(recallChars) || 900,
+              autoReflect,
+            }),
+          })
           setState((prev) => (prev ? { ...prev, settings: result.settings, name: result.settings.name } : prev))
           setSaved(`已保存 · ${clock()}`)
           setError('')
@@ -527,6 +542,44 @@ window.__ModuleLoader__.load({
           file,
           content: `---\nname: 新卡片\ndescription: \ntags: []\n---\n\n# 新卡片\n\n`,
         })
+      }
+
+      const runCheck = async () => {
+        setMemBusy(true)
+        try {
+          const data = await call('/memory/check')
+          const issues = (data && data.issues) || {}
+          const parts = []
+          const dupes = Array.isArray(issues.duplicates) ? issues.duplicates : []
+          if (dupes.length) {
+            parts.push(`重复 ${dupes.length} 对（${dupes.slice(0, 3).map((item) => `${item.a.replace(/\\.md$/, '')}↔${item.b.replace(/\\.md$/, '')}`).join('、')}${dupes.length > 3 ? '…' : ''}）`)
+          }
+          if (Array.isArray(issues.empty) && issues.empty.length) parts.push(`空卡 ${issues.empty.length}`)
+          if (Array.isArray(issues.long) && issues.long.length) parts.push(`超长 ${issues.long.length}`)
+          if (Array.isArray(issues.stale) && issues.stale.length) parts.push(`久未用 ${issues.stale.length}`)
+          setMemMsg(parts.length ? `体检：共 ${data.total} 张，${parts.join('；')}` : `体检：共 ${data.total} 张，没有毛病`)
+        } catch (cause) {
+          setMemMsg(`体检失败：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setMemBusy(false)
+        }
+      }
+
+      const runReflect = async () => {
+        setMemBusy(true)
+        setMemMsg('她在回看今天的原始记忆…')
+        try {
+          const result = await call('/memory/reflect', { method: 'POST', body: '{}' })
+          const changed = Number(result && result.cards) || 0
+          setMemMsg(result && result.ok
+            ? `回看完成：${changed ? `长出/合并 ${changed} 张卡` : '没有新的值得记的'}${result.growth ? '，成长 +1' : ''}`
+            : `这次没回看：${(result && (result.error || result.reason)) || '未知原因'}`)
+          if (result && result.ok) await loadMemory()
+        } catch (cause) {
+          setMemMsg(`回看失败：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setMemBusy(false)
+        }
       }
 
       const saveCard = async () => {
@@ -1427,6 +1480,8 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ycp-actions', style: { marginTop: '0', marginBottom: '6px' } },
               h('button', { className: 'ycp-btn small', disabled: memBusy, onClick: newCard }, '新建卡'),
               h('button', { className: 'ycp-btn small', disabled: memBusy, onClick: loadMemory }, '刷新'),
+              h('button', { className: 'ycp-btn small', disabled: memBusy, onClick: runCheck }, '体检'),
+              h('button', { className: 'ycp-btn small', disabled: memBusy, onClick: runReflect }, '让她回看今天'),
             ),
             cards.length === 0
               ? h('div', { className: 'ycp-empty' },
@@ -1436,7 +1491,7 @@ window.__ModuleLoader__.load({
               h('div', { className: 'ycp-mem-main' },
                 h('div', { className: 'ycp-mem-title' }, card.title || card.file),
                 card.description ? h('div', { className: 'ycp-mem-desc' }, card.description) : null,
-                h('div', { className: 'ycp-mem-meta' }, `${card.file} · ${card.chars} 字 · ${shortTime(card.mtimeMs)}`),
+                h('div', { className: 'ycp-mem-meta' }, `${card.importance ? `重要度 ${card.importance} · ` : ''}${card.file} · ${card.chars} 字 · ${shortTime(card.mtimeMs)}`),
               ),
               h('div', { className: 'ycp-mem-actions' },
                 h('button', { className: 'ycp-btn small', disabled: memBusy, onClick: () => openCard(card.layer, card.file) }, '打开'),
@@ -1939,6 +1994,41 @@ window.__ModuleLoader__.load({
               ),
               h('button', { className: 'ycp-btn', disabled: busy || !state, onClick: saveSettings },
                 busy ? '保存中…' : '保存设置'),
+            ),
+            h('div', { className: 'ycp-row', style: { marginTop: '8px' } },
+              h('div', { className: 'ycp-field' },
+                h('label', null, '记忆核心（每轮必带的字数）'),
+                h('input', {
+                  className: 'ycp-input',
+                  type: 'number',
+                  min: 400,
+                  max: 3000,
+                  value: coreChars,
+                  disabled: busy,
+                  onChange: (event) => setCoreChars(event.target.value),
+                }),
+              ),
+              h('div', { className: 'ycp-field' },
+                h('label', null, '相关记忆（按问题检索的字数）'),
+                h('input', {
+                  className: 'ycp-input',
+                  type: 'number',
+                  min: 200,
+                  max: 2000,
+                  value: recallChars,
+                  disabled: busy,
+                  onChange: (event) => setRecallChars(event.target.value),
+                }),
+              ),
+              h('label', { className: 'ycp-check' },
+                h('input', {
+                  type: 'checkbox',
+                  checked: autoReflect,
+                  disabled: busy,
+                  onChange: (event) => setAutoReflect(event.target.checked),
+                }),
+                '每天自己回看记忆',
+              ),
             ),
           ),
 

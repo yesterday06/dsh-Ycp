@@ -154,6 +154,7 @@ export function createAutoSelf({ ctx } = {}) {
   /** 从原始记忆里回看：默认 6 小时一次，force 可立刻做。 */
   async function reflect(options = {}) {
     const settings = loadSettings()
+    if (settings.autoReflect === false && !options.force) return { ok: false, reason: 'off' }
     if (settings.autoMemory === false && !options.force) return { ok: false, reason: 'off' }
     const service = llm()
     const current = model()
