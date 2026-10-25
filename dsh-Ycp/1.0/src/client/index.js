@@ -336,6 +336,7 @@ window.__ModuleLoader__.load({
       const [sigMsg, setSigMsg] = React.useState('')
       const [coreChars, setCoreChars] = React.useState(1200)
       const [recallChars, setRecallChars] = React.useState(900)
+      const [historyChars, setHistoryChars] = React.useState(16000)
       const [autoReflect, setAutoReflect] = React.useState(true)
       const lowSoundPlayed = React.useRef(false)
 
@@ -347,6 +348,7 @@ window.__ModuleLoader__.load({
           setEnabled(data.settings.enabled)
           setCoreChars(Number(data.settings.memoryCoreChars) || 1200)
           setRecallChars(Number(data.settings.memoryRecallChars) || 900)
+          setHistoryChars(Number(data.settings.historyChars) || 16000)
           setAutoReflect(data.settings.autoReflect !== false)
           if (data.settings.model) setApiForm({ baseUrl: data.settings.model.baseUrl || '', apiKey: data.settings.model.apiKey || '', model: data.settings.model.model || '' })
           setSignature(data.settings.signature || '')
@@ -475,6 +477,7 @@ window.__ModuleLoader__.load({
               enabled,
               memoryCoreChars: Number(coreChars) || 1200,
               memoryRecallChars: Number(recallChars) || 900,
+              historyChars: Number(historyChars) || 16000,
               autoReflect,
             }),
           })
@@ -2074,6 +2077,19 @@ window.__ModuleLoader__.load({
                   value: recallChars,
                   disabled: busy,
                   onChange: (event) => setRecallChars(event.target.value),
+                }),
+              ),
+              h('div', { className: 'ycp-field' },
+                h('label', null, '对话上下文（字，最多 512000）'),
+                h('input', {
+                  className: 'ycp-input',
+                  type: 'number',
+                  min: 2000,
+                  max: 512000,
+                  step: 1000,
+                  value: historyChars,
+                  disabled: busy,
+                  onChange: (event) => setHistoryChars(event.target.value),
                 }),
               ),
               h('label', { className: 'ycp-check' },

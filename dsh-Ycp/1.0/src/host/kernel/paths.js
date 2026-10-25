@@ -67,6 +67,7 @@ export const DEFAULT_SETTINGS = {
   memoryMaxChars: 600,
   memoryCoreChars: 1200,
   memoryRecallChars: 900,
+  historyChars: 16000,
   autoReflect: true,
   sayPerHour: 20,
   hands: DEFAULT_HANDS,
@@ -90,6 +91,7 @@ const NUMBER_SETTINGS = {
   memoryMaxChars: { lo: 100, hi: 2000 },
   memoryCoreChars: { lo: 400, hi: 3000 },
   memoryRecallChars: { lo: 200, hi: 2000 },
+  historyChars: { lo: 2000, hi: 512000 },
   sayPerHour: { lo: 1, hi: 200 },
 }
 

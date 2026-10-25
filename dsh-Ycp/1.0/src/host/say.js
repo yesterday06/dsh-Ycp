@@ -115,9 +115,8 @@ export function createSayService(ctx, options = {}) {
     // 放行就记账：模型请求马上要花出去了，失败也算一次尝试。
     commitSay(rate, now)
 
-    // 开口前先想起事：核心记忆（按重要度）+ 相关记忆（按问题检索）+ 此刻场景。
-    // 聊天记录只带最近 8 轮——更早的事由记忆卡和日记承载，不再把全部历史重发。
-    const history = loadHistory({ maxMessages: 8, maxChars: 2400 })
+    // 聊天记录不设存储上限；每次只说多少由 historyChars 决定（默认 1.6 万字，可调到 51.2 万）。
+    const history = loadHistory({ maxMessages: 2000, maxChars: Number(settings.historyChars) || 16000 })
     const historyBlock = history.length
       ? '\n\n【最近对话】\n' + history.map((item) => (item.role === 'assistant' ? '我：' : '主人：') + item.text).join('\n')
       : ''

@@ -536,12 +536,47 @@ ipcMain.on('ycp:notify-open', () => {
 
 ipcMain.on('ycp:notify-close', () => { if (notifyWin && !notifyWin.isDestroyed()) notifyWin.hide() })
 
+/** 读聊天记录末尾一块（jsonl，一行一条）；老格式没迁过来时退回 历史.json。 */
+function readHistoryTail(home, limit = 60) {
+  const dir = path.join(home, '状态', '对话')
+  const file = path.join(dir, '历史.jsonl')
+  try {
+    const size = fs.statSync(file).size
+    const bytes = Math.min(size, 512 * 1024)
+    const fd = fs.openSync(file, 'r')
+    const buffer = Buffer.alloc(bytes)
+    try {
+      fs.readSync(fd, buffer, 0, bytes, size - bytes)
+    } finally {
+      fs.closeSync(fd)
+    }
+    const lines = buffer.toString('utf8').split('\n')
+    if (size > bytes) lines.shift()
+    const out = []
+    for (const line of lines) {
+      const raw = line.trim()
+      if (!raw) continue
+      try {
+        const item = JSON.parse(raw)
+        const text = String(item?.text ?? '').trim()
+        if (text) out.push({ role: item.role === 'assistant' ? 'assistant' : 'user', text, at: Number(item.at) || 0 })
+      } catch { /* 坏行跳过 */ }
+    }
+    return out.slice(-limit)
+  } catch {
+    try {
+      const legacy = path.join(dir, '历史.json')
+      const data = JSON.parse(fs.readFileSync(legacy, 'utf8'))
+      return Array.isArray(data.messages) ? data.messages.slice(-limit) : []
+    } catch {
+      return []
+    }
+  }
+}
+
 ipcMain.handle('ycp:history', () => {
   try {
-    const home = process.env.YCP_HOME || ''
-    const file = path.join(home, '状态', '对话', '历史.json')
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'))
-    return Array.isArray(data.messages) ? data.messages.slice(-60) : []
+    return readHistoryTail(process.env.YCP_HOME || '', 60)
   } catch {
     return []
   }
