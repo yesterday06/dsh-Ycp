@@ -296,9 +296,7 @@ function sendReply(payload) {
   sendToWin('ycp:reply', payload)
   if (chatWin && !chatWin.isDestroyed()) chatWin.webContents.send('ycp:chat-reply', payload)
   if (bigChatWin && !bigChatWin.isDestroyed()) bigChatWin.webContents.send('ycp:chat-reply', payload)
-  if (tray && (!bigChatWin || bigChatWin.isDestroyed() || !bigChatWin.isVisible())) {
-    try { tray.displayBalloon({ title: NAME, content: String(payload?.text || '有新消息').slice(0, 120) }) } catch { /* 气泡失败不挡 */ }
-  }
+  if (!bigChatWin || bigChatWin.isDestroyed() || !bigChatWin.isVisible()) pushUnread(payload)
 }
 
 function setPinned(value) {
@@ -356,7 +354,7 @@ function updateTray() {
   if (!tray) return
   const menu = Menu.buildFromTemplate([
     { label: '💬 跟' + NAME + '说话', click: () => toggleBigChat() },
-    { label: '📥 消息盒子', click: () => toggleBigChat() },
+    { label: '📥 消息盒子' + (unread.length ? '（' + unread.length + '）' : ''), click: () => toggleNotify(true) },
     { type: 'separator' },
     { label: '显示 / 隐藏', click: () => toggleVisible() },
     { label: pinned ? '取消固定（恢复点击）' : '固定（点不到她）', click: () => setPinned(!pinned) },
@@ -529,6 +527,15 @@ ipcMain.on('ycp:action', (_event, payload) => {
   if (kind === 'bigchat') { toggleBigChat(); return }
 })
 
+ipcMain.on('ycp:notify-open', () => {
+  unread = []
+  if (notifyWin && !notifyWin.isDestroyed()) notifyWin.hide()
+  updateTray()
+  toggleBigChat()
+})
+
+ipcMain.on('ycp:notify-close', () => { if (notifyWin && !notifyWin.isDestroyed()) notifyWin.hide() })
+
 ipcMain.handle('ycp:history', () => {
   try {
     const home = process.env.YCP_HOME || ''
@@ -554,8 +561,70 @@ ipcMain.handle('ycp:diary', () => {
   }
 })
 
+let notifyWin = null
+let unread = []
+let blinkTimer = null
+
+function startBlink() {
+  if (blinkTimer || !tray) return
+  let on = false
+  blinkTimer = setInterval(() => {
+    if (!tray || tray.isDestroyed() || unread.length === 0) {
+      clearInterval(blinkTimer); blinkTimer = null
+      try { tray.setImage(nativeImage.createFromPath(path.join(__dirname, '..', 'character', 'tray.png'))) } catch { /* 忽略 */ }
+      return
+    }
+    on = !on
+    try { tray.setImage(nativeImage.createFromPath(path.join(__dirname, '..', 'character', on ? 'icon.png' : 'tray.png'))) } catch { /* 忽略 */ }
+  }, 600)
+}
+
+function pushUnread(payload) {
+  const text = String(payload?.text || '').trim()
+  if (!text) return
+  startBlink()
+  unread.push({ id: String(Date.now()) + '-' + unread.length, name: NAME, text: text.slice(0, 160), at: Date.now() })
+  unread = unread.slice(-20)
+  if (!bigChatWin || bigChatWin.isDestroyed() || !bigChatWin.isVisible()) toggleNotify(true)
+  if (tray) tray.setToolTip(NAME + '：' + text.replace(/\s+/g, ' ').slice(0, 40))
+  updateTray()
+}
+
+function toggleNotify(force) {
+  if (notifyWin && !notifyWin.isDestroyed()) {
+    if (force === false) { notifyWin.hide(); return }
+    notifyWin.show()
+    notifyWin.webContents.send('ycp:notify', unread)
+    try { notifyWin.flashFrame(true) } catch { /* 闪不了不挡 */ }
+    return
+  }
+  const area = screen.getPrimaryDisplay().workArea
+  notifyWin = new BrowserWindow({
+    width: 310,
+    height: 380,
+    x: Math.max(area.x, area.x + area.width - 330),
+    y: Math.max(area.y, area.y + area.height - 410),
+    frame: false,
+    resizable: false,
+    skipTaskbar: true,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
+  })
+  notifyWin.loadFile(path.join(__dirname, 'notify.html'))
+  notifyWin.once('ready-to-show', () => {
+    notifyWin.show()
+    notifyWin.webContents.send('ycp:notify', unread)
+    try { notifyWin.flashFrame(true) } catch { /* 闪不了不挡 */ }
+  })
+  notifyWin.on('closed', () => { notifyWin = null })
+}
+
 let bigChatWin = null
 function toggleBigChat() {
+  unread = []
+  if (notifyWin && !notifyWin.isDestroyed()) notifyWin.hide()
+  updateTray()
   if (bigChatWin && !bigChatWin.isDestroyed()) {
     if (bigChatWin.isVisible()) { bigChatWin.hide(); return }
     bigChatWin.show(); bigChatWin.focus(); return
