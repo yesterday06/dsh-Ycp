@@ -285,7 +285,7 @@ dsh-Ycp\1.0\
 
 ## 3.1 安装（开发期）
 
-1. 把 `dsh-Ycp\1.0\` 拷到 `D:\OpenAI\仓库\dsh-Ycp\1.0\`
+1. 把 `dsh-Ycp\1.0\` 拷到 `<你的插件目录>\dsh-Ycp\1.0\`
 2. 备份 `C:\Users\<你>\.dsh\profiles\desktop` 整个目录
 3. 在 profile 的 `package.json` 加依赖与 bundle
 4. 重启 Harness（用计划任务脚本，不自杀式重启）
@@ -354,16 +354,16 @@ P11 之后：加一个测试站点 → 看她能不能登进去
 Get-Content "$env:USERPROFILE\.dsh\fish\fish.log" -Tail 20
 
 # 实例目录是否建好
-Get-ChildItem "D:\OpenAI\仓库\dsh-Ycp\1.0\大肥鱼" -Recurse
+Get-ChildItem "<你的插件目录>\dsh-Ycp\1.0\大肥鱼" -Recurse
 
 # 交接卡有几张
-Get-ChildItem "D:\OpenAI\仓库\dsh-Ycp\1.0\阶段记忆" | Measure-Object
+Get-ChildItem "<你的插件目录>\dsh-Ycp\1.0\阶段记忆" | Measure-Object
 ```
 
 ## 4.3 重启
 
 ```
-双击 D:\OpenAI\工作区1\重启Harness.cmd
+双击 <工作区>\重启Harness.cmd
 ```
 
 ## 4.4 回滚

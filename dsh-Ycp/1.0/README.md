@@ -58,7 +58,7 @@
 1. 依赖：Windows + DSH `>= 0.2.1-rc.2`；桌宠窗口用 `~/.dsh/electron/electron.exe`。
 2. 在 desktop profile 的 `package.json` 里加 `"dsh-Ycp": "link:<本目录>"`，并在 `dsh.profile.bundles` 末尾加 `"dsh-Ycp"`。
 3. 重启 Harness。
-4. 家目录：`<数据根>/阿闷/`（数据根默认 `D:\OpenAI\dsh-Ycp`，可用 `DSH_YCP_HOME` 改；名字由 `人物名.txt` 决定）。
+4. 家目录：`<数据根>/阿闷/`（数据根默认 `<盘>:\OpenAI\dsh-Ycp`，可用 `DSH_YCP_HOME` 改；名字由 `人物名.txt` 决定）。
 
 ## 目录
 

@@ -73,7 +73,7 @@
 ## 5. 目录
 
 ```
-D:\OpenAI\仓库\dsh-Ycp\1.0\
+<插件目录>\dsh-Ycp\1.0\
 ├─ DESIGN.md
 ├─ PROMPT.md
 ├─ 阶段记忆\                 P01-包与入口.md …
