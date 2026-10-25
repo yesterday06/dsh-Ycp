@@ -98,6 +98,9 @@ export function createSayService(ctx, options = {}) {
     // 开口前先想起事：全局 + 归档按分数取 top-k，实时卡必读，日记不参与。
     // 检索词带上最近几轮用户的话，免得一句“那个呢”就接不上。
     const history = loadHistory()
+    const historyBlock = history.length
+      ? '\n\n【最近对话】\n' + history.map((item) => (item.role === 'assistant' ? '我：' : '主人：') + item.text).join('\n')
+      : ''
     const recentUser = history
       .filter((item) => item.role === 'user')
       .slice(-3)
@@ -133,8 +136,7 @@ export function createSayService(ctx, options = {}) {
           body: JSON.stringify({
             model: custom.model,
             messages: [
-              { role: 'system', content: system },
-              ...history.map((item) => ({ role: item.role, content: item.text })),
+              { role: 'system', content: system + historyBlock },
               { role: 'user', content: text },
             ],
             temperature: 1,
@@ -177,18 +179,16 @@ export function createSayService(ctx, options = {}) {
           ? '\n\n【工具】要用工具时，只输出一行：<<TOOL 工具名 {"参数":值}>>，不要解释。结果会以“工具结果”回给你。\n' +
             catalog.map((tool) => `- ${tool.id}：${String(tool.description || '').slice(0, 90)} 参数 ${JSON.stringify(tool.schema)}`).join('\n')
           : ''
-        const systemWithTools = system + toolNote
-        const messages = [
-          ...history.map((item) => ({ role: item.role, content: [{ type: 'text', text: item.text }] })),
-          { role: 'user', content: [{ type: 'text', text }] },
-        ]
+        const systemWithTools = system + toolNote + historyBlock
+        const messages = [{ role: 'user', content: [{ type: 'text', text }] }]
+        let toolContext = ''
         let finalText = ''
         for (let round = 0; round < 3; round += 1) {
           let roundText = ''
           const stream = llm.stream({
             provider: model.provider,
             model: model.model,
-            system: systemWithTools,
+            system: systemWithTools + (toolContext ? '\n\n【工具结果】\n' + toolContext : ''),
             messages,
             temperature: 1,
             sessionId: 'dsh-Ycp',
@@ -207,8 +207,7 @@ export function createSayService(ctx, options = {}) {
           try { args = JSON.parse(match[2] || '{}') } catch { args = {} }
           const result = toolRegistry ? await toolRegistry.invoke(toolId, args) : { ok: false, error: '没有工具注册表' }
           if (['memory.card', 'diary.write', 'persona.grow'].includes(toolId)) resetMemoryNudge()
-          messages.push({ role: 'assistant', content: [{ type: 'text', text: roundText }] })
-          messages.push({ role: 'user', content: [{ type: 'text', text: '工具' + toolId + '结果：' + JSON.stringify(result).slice(0, 3000) }] })
+          toolContext += '工具 ' + toolId + ' 结果：' + JSON.stringify(result).slice(0, 3000) + '\n'
         }
         pieces.push(finalText)
       } catch (error) {
