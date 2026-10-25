@@ -48,8 +48,14 @@
   <aside class="side">
     <div class="brand"><img src="../character/icon.png" alt="" /><b id="brandName">阿闷</b></div>
     <div class="tab on" data-page="chat">💬 聊天</div>
+    <div class="tab" data-page="profile">🪪 她的空间</div>
     <div class="tab" data-page="settings">⚙ 设置</div>
     <div class="tab" data-page="diary">📔 日记</div>
+    <div class="tab" data-page="bilibili">📺 B站</div>
+    <div class="tab" data-page="douyin">🎵 抖音</div>
+    <div class="tab" data-page="heybox">🎮 小黑盒</div>
+    <div class="tab" data-page="qzone">🌙 QQ空间</div>
+    <div class="tab" data-page="qq">🐧 QQ</div>
     <div class="foot">总终端 · 桌宠只是入口</div>
   </aside>
   <main class="main">
@@ -66,7 +72,12 @@
         <h3>她的设置</h3>
         <div class="field">名字<input id="setName" /></div>
         <div class="field">签名<textarea id="setSignature" rows="3"></textarea></div>
+        <div class="field">模型接口<input id="setBaseUrl" placeholder="https://api.deepseek.com/v1" /></div>
+        <div class="field">API Key<input id="setApiKey" placeholder="留空就不改" /></div>
+        <div class="field">模型名<input id="setModel" placeholder="deepseek-chat" /></div>
+        <div class="field"><label><input type="checkbox" id="setAutoMemory" style="width:auto" /> 自动整理记忆</label></div>
         <button class="btn" id="saveSettings">保存</button>
+        <button class="btn" id="openPanel">打开完整面板</button>
         <span class="muted" id="settingsMsg"></span>
         <p class="muted">模型、权限、作息等完整设置可去面板改；这里放最常用的。</p>
       </div>
@@ -75,6 +86,13 @@
     <section class="page" data-page="diary">
       <div class="panel" id="diaryList"><p class="muted">读日记中…</p></div>
     </section>
+
+    <section class="page" data-page="profile"><div class="panel" id="profileBox"><p class="muted">读状态中…</p></div></section>
+    <section class="page" data-page="bilibili"><div class="panel platformBox"></div></section>
+    <section class="page" data-page="douyin"><div class="panel platformBox"></div></section>
+    <section class="page" data-page="heybox"><div class="panel platformBox"></div></section>
+    <section class="page" data-page="qzone"><div class="panel platformBox"></div></section>
+    <section class="page" data-page="qq"><div class="panel platformBox"></div></section>
   </main>
 </div>
 <script>
@@ -117,14 +135,46 @@
     for (const item of Array.isArray(list) ? list : []) add(item.role === 'assistant' ? 'her' : 'me', item.text)
   }).catch(() => {})
 
-  document.querySelectorAll('.tab').forEach((tab) => {
-    tab.onclick = () => {
-      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t === tab))
-      document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.dataset.page === tab.dataset.page))
-      if (tab.dataset.page === 'diary') loadDiary()
-      if (tab.dataset.page === 'settings') loadSettings()
+  const PLATFORMS = {
+    bilibili: ['B站', 'https://www.bilibili.com', '登录一次，之后发视频、评论、看数据都用它。'],
+    douyin: ['抖音', 'https://www.douyin.com', '登录一次，之后发视频、评论、看数据都用它。'],
+    heybox: ['小黑盒', 'https://www.xiaoheihe.cn', '登录一次，之后发帖、评论、看游戏数据。'],
+    qzone: ['QQ空间', 'https://qzone.qq.com', '登录一次，之后发说说、看动态。'],
+    qq: ['QQ', '', 'QQ 走桌面手：先打开 QQ 窗口，再让她在里面发消息。'],
+  }
+  function showPage(page) {
+    document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t.dataset.page === page))
+    document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.dataset.page === page))
+    if (page === 'diary') loadDiary()
+    if (page === 'settings') loadSettings()
+    if (page === 'profile') loadProfile()
+    if (PLATFORMS[page]) loadPlatform(page)
+  }
+  document.querySelectorAll('.tab').forEach((tab) => { tab.onclick = () => showPage(tab.dataset.page) })
+  document.querySelector('.brand').style.cursor = 'pointer'
+  document.querySelector('.brand').onclick = () => showPage('profile')
+
+  async function loadProfile() {
+    const box = document.getElementById('profileBox')
+    try {
+      const data = await api.api('/state', 'GET')
+      const s = data.settings || {}, m = data.mood || {}
+      const satiety = m.satiety != null ? m.satiety : 100 - (m.hunger || 0)
+      box.innerHTML = '<div class="diary"><h4>' + (s.name || name) + '</h4><div>' + (s.signature || '还没写签名') + '</div><div class="muted">体力 ' + Math.round(m.energy || 0) + ' · 心情 ' + Math.round(m.mood || 0) + ' · 饱食 ' + Math.round(satiety) + '</div></div><p class="muted">照片墙先用她的形象图占位，以后发帖/发视频的截图会落在这里。</p>'
+      const im = document.createElement('img'); im.src = '../character/character.png'; im.style.cssText = 'width:120px;border-radius:16px;border:2px solid #bfe6f7'
+      box.appendChild(im)
+    } catch { box.innerHTML = '<p class="muted">状态读不出来。</p>' }
+  }
+  async function loadPlatform(key) {
+    const cfg = PLATFORMS[key]
+    const box = document.querySelector('.page[data-page="' + key + '"] .platformBox')
+    box.innerHTML = '<div class="diary"><h4>' + cfg[0] + '</h4><div class="muted">' + cfg[2] + '</div></div>'
+    if (cfg[1]) {
+      const btn = document.createElement('button'); btn.className = 'btn'; btn.textContent = '打开登录'
+      btn.onclick = () => api.api('/tools/invoke', 'POST', { id: 'browser.login', args: { url: cfg[1] } }).catch(() => {})
+      box.appendChild(btn)
     }
-  })
+  }
 
   async function loadSettings() {
     try {
@@ -132,15 +182,23 @@
       const s = data.settings || data
       document.getElementById('setName').value = s.name || name
       document.getElementById('setSignature').value = s.signature || ''
+      document.getElementById('setBaseUrl').value = (s.model && s.model.baseUrl) || ''
+      document.getElementById('setModel').value = (s.model && s.model.model) || ''
+      document.getElementById('setAutoMemory').checked = s.autoMemory !== false
     } catch { document.getElementById('settingsMsg').textContent = '读不到设置' }
   }
   document.getElementById('saveSettings').onclick = async () => {
     try {
-      const body = { name: document.getElementById('setName').value.trim(), signature: document.getElementById('setSignature').value }
+      const body = { name: document.getElementById('setName').value.trim(), signature: document.getElementById('setSignature').value, autoMemory: document.getElementById('setAutoMemory').checked }
+      const baseUrl = document.getElementById('setBaseUrl').value.trim()
+      const key = document.getElementById('setApiKey').value.trim()
+      const modelName = document.getElementById('setModel').value.trim()
+      if (baseUrl || key || modelName) body.model = { baseUrl, model: modelName, ...(key ? { apiKey: key } : {}) }
       await api.api('/settings', 'PUT', body)
       document.getElementById('settingsMsg').textContent = '已保存'
     } catch { document.getElementById('settingsMsg').textContent = '保存失败' }
   }
+  document.getElementById('openPanel').onclick = () => api.action('open')
   async function loadDiary() {
     const box = document.getElementById('diaryList')
     if (box.dataset.loaded) return
