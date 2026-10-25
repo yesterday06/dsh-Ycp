@@ -42,7 +42,7 @@ let menuWin = null
 let cookie = ''
 let scale = 1
 let pinned = false
-let gravity = true
+let gravity = false
 let tray = null
 let WIDTH = BASE_WIDTH
 let HEIGHT = BASE_HEIGHT
@@ -53,7 +53,7 @@ function loadConfig() {
     const data = JSON.parse(raw)
     if (Number(data.scale) >= 0.5 && Number(data.scale) <= 2.2) scale = Number(data.scale)
     pinned = Boolean(data.pinned)
-    gravity = data.gravity !== false
+    gravity = data.gravity === true
   } catch { /* 第一次没有配置 */ }
   WIDTH = Math.round(BASE_WIDTH * scale)
   HEIGHT = Math.round(BASE_HEIGHT * scale)

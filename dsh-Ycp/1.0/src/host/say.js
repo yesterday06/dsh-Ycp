@@ -162,75 +162,53 @@ export function createSayService(ctx, options = {}) {
       usedModel = `${model.provider}/${model.model}`
       try {
         const wantsOff = await reasoningOffSupported(llm, model.provider, model.model)
-        // 模型接口只接受 [a-zA-Z0-9_-]；插件工具 id 带点（memory.raw、name.set），
-        // 发给模型时统一换成下划线，调用回来再映射回真实 id。
-        const toolIds = new Map()
-        const tools = toolRegistry && typeof toolRegistry.listTools === 'function'
-          ? toolRegistry.listTools()
-              .filter((tool) => tool && tool.schema && tool.id)
-              .map((tool) => {
-                const apiName = String(tool.id).replace(/[^a-zA-Z0-9_-]/g, '_')
-                toolIds.set(apiName, tool.id)
-                return { name: apiName, description: String(tool.description || ''), parameters: tool.schema }
-              })
+        // 不再用原生 tool schema（模型接口对 id/消息结构很挑，容易整段失败）。
+        // 改成“文字指令”：模型只输出一行 <<TOOL 工具名 {...}>>，宿主执行后把结果当对话喂回去。
+        const CATALOG_IDS = [
+          'memory.card', 'memory.raw', 'memory.list', 'memory.forget', 'memory.consolidate',
+          'diary.write', 'persona.grow', 'name.set', 'signature.set', 'schedule.set', 'proactive.set',
+          'qq.send', 'browser.login', 'browser.goto', 'browser.text', 'browser.click',
+          'bili.comment', 'bili.like', 'site.api',
+        ]
+        const catalog = toolRegistry && typeof toolRegistry.listTools === 'function'
+          ? toolRegistry.listTools().filter((tool) => tool && tool.id && CATALOG_IDS.includes(tool.id))
           : []
+        const toolNote = catalog.length
+          ? '\n\n【工具】要用工具时，只输出一行：<<TOOL 工具名 {"参数":值}>>，不要解释。结果会以“工具结果”回给你。\n' +
+            catalog.map((tool) => `- ${tool.id}：${String(tool.description || '').slice(0, 90)} 参数 ${JSON.stringify(tool.schema)}`).join('\n')
+          : ''
+        const systemWithTools = system + toolNote
         const messages = [
           ...history.map((item) => ({ role: item.role, content: [{ type: 'text', text: item.text }] })),
           { role: 'user', content: [{ type: 'text', text }] },
         ]
         let finalText = ''
-        for (let round = 0; round < 4; round += 1) {
-          const calls = new Map()
+        for (let round = 0; round < 3; round += 1) {
           let roundText = ''
           const stream = llm.stream({
             provider: model.provider,
             model: model.model,
-            system,
+            system: systemWithTools,
             messages,
             temperature: 1,
             sessionId: 'dsh-Ycp',
             signal: AbortSignal.timeout(TIMEOUT_MS),
             ...(wantsOff ? { reasoningEffort: 'off' } : {}),
-            ...(tools.length ? { tools } : {}),
           })
           for await (const chunk of stream) {
             if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') roundText += chunk.text
-            else if (chunk?.type === 'tool-call-delta') {
-              const key = chunk.index ?? calls.size
-              const entry = calls.get(key) || { id: chunk.id, name: chunk.name || '', arguments: '' }
-              if (chunk.name) entry.name = chunk.name
-              if (chunk.argumentsDelta) entry.arguments += chunk.argumentsDelta
-              calls.set(key, entry)
-            } else if (chunk?.type === 'finish') finish = chunk.reason ?? null
+            else if (chunk?.type === 'finish') finish = chunk.reason ?? null
           }
-          finalText += roundText
-          const list = [...calls.values()].filter((call) => call.name)
-          if (list.length === 0) break
-          messages.push({
-            role: 'assistant',
-            id: 'm-' + Date.now() + '-' + round,
-            source: { kind: 'model', provider: model.provider, model: model.model },
-            content: [
-              ...(roundText ? [{ type: 'text', text: roundText }] : []),
-              ...list.map((call) => ({ type: 'tool-call', id: call.id, name: call.name, arguments: call.arguments || '{}' })),
-            ],
-          })
-          for (const call of list) {
-            let args = {}
-            try { args = JSON.parse(call.arguments || '{}') } catch { args = {} }
-            const result = toolRegistry ? await toolRegistry.invoke(toolIds.get(call.name) || call.name, args) : { ok: false, error: '没有可用的工具注册表' }
-            const realId = toolIds.get(call.name) || call.name
-            if (['memory.card', 'diary.write', 'persona.grow'].includes(realId)) resetMemoryNudge()
-            const content = JSON.stringify(result).slice(0, 4000)
-            messages.push({
-              role: 'tool',
-              id: 't-' + call.id,
-              source: { kind: 'tool', callId: call.id },
-              toolCallId: call.id,
-              isError: !result?.ok,
-              content: [{ type: 'text', text: content }],
-            })
-          }
+          const match = /<<TOOL\s+([\w.]+)\s*(\{[\s\S]*?\})?\s*>>/.exec(roundText)
+          if (!match) { finalText += roundText; break }
+          finalText += roundText.replace(match[0], '')
+          const toolId = match[1]
+          let args = {}
+          try { args = JSON.parse(match[2] || '{}') } catch { args = {} }
+          const result = toolRegistry ? await toolRegistry.invoke(toolId, args) : { ok: false, error: '没有工具注册表' }
+          if (['memory.card', 'diary.write', 'persona.grow'].includes(toolId)) resetMemoryNudge()
+          messages.push({ role: 'assistant', content: [{ type: 'text', text: roundText }] })
+          messages.push({ role: 'user', content: [{ type: 'text', text: '工具' + toolId + '结果：' + JSON.stringify(result).slice(0, 3000) }] })
         }
         pieces.push(finalText)
       } catch (error) {

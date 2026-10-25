@@ -12,10 +12,10 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homePaths, writeAtomic } from '../kernel/paths.js'
 
-const MAX_KEEP = 400
-const MAX_CHARS = 200000
-const DEFAULT_MESSAGES = 120
-const DEFAULT_CHARS = 40000
+const MAX_KEEP = 800
+const MAX_CHARS = 600000
+const DEFAULT_MESSAGES = 400
+const DEFAULT_CHARS = 200000
 
 function historyFile() {
   return join(homePaths().root, '状态', '对话', '历史.json')
