@@ -22,6 +22,8 @@ try {
 
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
 
 Add-Type @"
 using System;
@@ -205,6 +207,47 @@ switch ($action) {
     $result.process = $found.ProcessName
     $result.title = $found.MainWindowTitle
     $result.windowFound = [bool]($found.MainWindowHandle -and $found.MainWindowHandle -ne 0)
+  }
+  'uia' {
+    $h = [YcpWin]::GetForegroundWindow()
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
+    $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $items = @()
+    $count = [Math]::Min(200, $all.Count)
+    for ($i = 0; $i -lt $count; $i++) {
+      $e = $all.Item($i)
+      $name = [string]$e.Current.Name
+      if (-not $name) { continue }
+      $rect = $e.Current.BoundingRectangle
+      if ($rect.Width -le 0 -or $rect.Height -le 0) { continue }
+      $items += @{ name = $name; type = $e.Current.ControlType.ProgrammaticName; x = [int]($rect.X + $rect.Width / 2); y = [int]($rect.Y + $rect.Height / 2) }
+      if ($items.Count -ge 80) { break }
+    }
+    $result.foreground = Get-ForegroundTitle
+    $result.elements = $items
+  }
+  'uiaClick' {
+    $h = [YcpWin]::GetForegroundWindow()
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
+    $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $needle = [string]$p.name
+    $hit = $null
+    for ($i = 0; $i -lt $all.Count; $i++) {
+      $e = $all.Item($i)
+      if (([string]$e.Current.Name).Contains($needle)) { $hit = $e; break }
+    }
+    if (-not $hit) { Fail ("没找到界面元素：" + $needle) }
+    $rect = $hit.Current.BoundingRectangle
+    $x = [int]($rect.X + $rect.Width / 2)
+    $y = [int]($rect.Y + $rect.Height / 2)
+    [void][YcpWin]::SetCursorPos($x, $y)
+    Start-Sleep -Milliseconds 120
+    Send-Mouse $true $x $y
+    Start-Sleep -Milliseconds 60
+    Send-Mouse $false $x $y
+    $result.name = $needle
+    $result.x = $x
+    $result.y = $y
   }
   default { Fail ("unknown action: " + $action) }
 }

@@ -121,17 +121,25 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     return { ...result, keyword: word }
   }
 
-  async function qqSend({ text }) {
+  async function qqSend({ text, to }) {
     const body = String(text ?? '').trim()
     if (!body) throw new Error('要发什么？')
     if (body.length > 500) throw new Error('一条最多 500 字')
     need(desktop)
     // 先把 QQ 窗口切到前台，再打字；从后台直接 type 会被系统静默忽略。
-    try { await desktop.focus('QQ') } catch { throw new Error('没找到 QQ 窗口：先把 QQ 打开，点开要发消息的那个人') }
+    try { await desktop.focus('QQ') } catch { throw new Error('没找到 QQ 窗口：先把 QQ 打开') }
+    const target = String(to ?? '').trim()
+    if (target) {
+      // QQ 的搜索：Ctrl+F → 输入联系人/群名 → 回车进聊天 → 再输入内容。
+      await desktop.key('^f', { expectTitle: 'QQ' })
+      await desktop.type(target, { expectTitle: 'QQ' })
+      await desktop.key('{ENTER}', { expectTitle: 'QQ' })
+      await new Promise((resolve) => setTimeout(resolve, 700))
+    }
     const result = await desktop.type(body, { expectTitle: 'QQ' })
     const keyed = await desktop.key('{ENTER}', { expectTitle: 'QQ' })
-    log('QQ 发送', { chars: body.length, foreground: result.foreground })
-    return { sent: body.length, foreground: result.foreground, enter: keyed.foreground }
+    log('QQ 发送', { chars: body.length, to: target || '(当前窗口)', foreground: result.foreground })
+    return { sent: body.length, to: target || null, foreground: result.foreground, enter: keyed.foreground }
   }
 
   async function qqStatus() {
@@ -517,14 +525,14 @@ export function installPlatformTools(registry, platforms) {
     },
     {
       id: 'qq.send',
-      description: '把一句话发到当前打开的 QQ 聊天窗口（先手动点开那个人的聊天框）',
+      description: '在 QQ 里发一句话；给 to 就自动搜索联系人/群并进聊天，不给就发到当前聊天窗口',
       hand: 'desktop',
       schema: {
         type: 'object',
-        properties: { text: { type: 'string' } },
+        properties: { text: { type: 'string' }, to: { type: 'string', description: '联系人/群名，可省略' } },
         required: ['text'],
       },
-      run: async ({ text }) => platforms.qqSend({ text }),
+      run: async ({ text, to }) => platforms.qqSend({ text, to }),
     },
     {
       id: 'qq.status',
