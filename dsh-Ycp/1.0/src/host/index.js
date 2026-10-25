@@ -303,7 +303,7 @@ export function apply(ctx) {
 
   // 桌宠对话/记账：纯文件桥，不依赖面板登录态。
   const autoSelf = createAutoSelf({ ctx })
-  const sayService = createSayService(ctx, { tools: registry, autoSelf })
+  const sayService = createSayService(ctx, { tools: registry, autoSelf, desktop })
   const bridge = createPetBridge({ say: sayService, voice, ledger })
   bridge.start()
 

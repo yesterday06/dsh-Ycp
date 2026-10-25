@@ -69,6 +69,7 @@ function noTextReason(finish) {
 export function createSayService(ctx, options = {}) {
   const toolRegistry = options.tools || null
   const autoSelf = options.autoSelf || null
+  const desktop = options.desktop || null
   async function say(input, options = {}) {
     const now = options.now instanceof Date ? options.now : new Date()
     const text = String(input?.text ?? '').trim()
@@ -109,6 +110,16 @@ export function createSayService(ctx, options = {}) {
     const query = recentUser ? recentUser + '\n' + text : text
     const recalled = search(query, { topK: settings.memoryTopK, maxChars: settings.memoryMaxChars })
 
+    // 感知：她开口前先知道主人现在在哪个窗口，不是瞎猜。
+    let scene = ''
+    try {
+      if (desktop && typeof desktop.info === 'function') {
+        const info = await desktop.info()
+        const foreground = String(info?.foreground ?? '').trim()
+        if (foreground) scene = '【眼前】主人现在的前台窗口：' + foreground.slice(0, 80)
+      }
+    } catch { /* 桌面手不可用就不带 */ }
+
     const system = buildSystem({
       persona: loadPersona(),
       name: settings.name,
@@ -118,6 +129,7 @@ export function createSayService(ctx, options = {}) {
           ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
           : '',
         memoryNudgeText(),
+        scene,
       ].filter(Boolean).join('\n\n'),
     })
     const started = Date.now()
