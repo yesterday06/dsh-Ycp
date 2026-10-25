@@ -19,7 +19,7 @@
  * 点完链接会再查一次落地网址，跑出白名单就退回到 about:blank 并报错。
  */
 import { execFileSync, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, relative } from 'node:path'
 import { appendLog, homePaths } from '../kernel/paths.js'
 
@@ -37,6 +37,28 @@ export const BROWSER_CANDIDATES = [
 ]
 
 /** 找本机浏览器；YCP_BROWSER_PATH 可以指定一个。 */
+/** 把她自己的浏览器登录态同步成主人日常 Edge 的：同一个账号，不用再登一次。 */
+function syncSharedLogin(profileDir) {
+  const source = join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data')
+  if (!existsSync(source)) return []
+  const pairs = [
+    ['Local State', 'Local State'],
+    ['Default/Network/Cookies', 'Default/Network/Cookies'],
+    ['Default/Cookies', 'Default/Cookies'],
+  ]
+  const copied = []
+  for (const [from, to] of pairs) {
+    const src = join(source, from)
+    if (!existsSync(src)) continue
+    const dst = join(profileDir, to)
+    try {
+      mkdirSync(join(dst, '..'), { recursive: true })
+      copyFileSync(src, dst)
+      copied.push(to)
+    } catch { /* 浏览器正在写就跳过，下次再同步 */ }
+  }
+  return copied
+}
 export function detectBrowser(env = process.env) {
   const custom = String(env.YCP_BROWSER_PATH ?? '').trim()
   if (custom && existsSync(custom)) return { ok: true, path: custom, name: '自定义', source: 'env' }
@@ -239,6 +261,8 @@ export function createBrowserHand(options = {}) {
       if (!detected.ok) throw new Error(detected.error)
       const dirs = paths()
       mkdirSync(dirs.profile, { recursive: true })
+      const shared = syncSharedLogin(dirs.profile)
+      if (shared.length) appendLog('同步主人浏览器登录态', { files: shared })
       const args = [
         ...(headless ? ['--headless=new'] : ['--window-size=1280,860', '--window-position=80,60']),
         '--remote-debugging-port=0',
