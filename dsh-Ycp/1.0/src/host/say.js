@@ -188,7 +188,7 @@ export function createSayService(ctx, options = {}) {
           const stream = llm.stream({
             provider: model.provider,
             model: model.model,
-            system: systemWithTools + (toolContext ? '\n\n【工具结果】\n' + toolContext : ''),
+            system: systemWithTools + (toolContext ? '\n\n【工具结果】\n' + toolContext + '\n工具已经执行完，现在只用一句自然的话回复主人，不要再输出任何 <<TOOL>> 指令。' : ''),
             messages,
             temperature: 1,
             sessionId: 'dsh-Ycp',
@@ -208,6 +208,26 @@ export function createSayService(ctx, options = {}) {
           const result = toolRegistry ? await toolRegistry.invoke(toolId, args) : { ok: false, error: '没有工具注册表' }
           if (['memory.card', 'diary.write', 'persona.grow'].includes(toolId)) resetMemoryNudge()
           toolContext += '工具 ' + toolId + ' 结果：' + JSON.stringify(result).slice(0, 3000) + '\n'
+        }
+        if (!finalText.trim()) {
+          // 工具执行完模型可能只吐了指令没吐正文：再要一次纯回复。
+          try {
+            let tail = ''
+            const stream = llm.stream({
+              provider: model.provider,
+              model: model.model,
+              system: system + historyBlock + '\n\n工具已经执行完，现在只用一句自然的话回复主人，不要再输出任何工具指令。',
+              messages,
+              temperature: 1,
+              sessionId: 'dsh-Ycp',
+              signal: AbortSignal.timeout(TIMEOUT_MS),
+              ...(wantsOff ? { reasoningEffort: 'off' } : {}),
+            })
+            for await (const chunk of stream) {
+              if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') tail += chunk.text
+            }
+            finalText = tail
+          } catch { /* 还不行就算了 */ }
         }
         pieces.push(finalText)
       } catch (error) {

@@ -126,6 +126,8 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
     if (!body) throw new Error('要发什么？')
     if (body.length > 500) throw new Error('一条最多 500 字')
     need(desktop)
+    // 先把 QQ 窗口切到前台，再打字；从后台直接 type 会被系统静默忽略。
+    try { await desktop.focus('QQ') } catch { throw new Error('没找到 QQ 窗口：先把 QQ 打开，点开要发消息的那个人') }
     const result = await desktop.type(body, { expectTitle: 'QQ' })
     const keyed = await desktop.key('{ENTER}', { expectTitle: 'QQ' })
     log('QQ 发送', { chars: body.length, foreground: result.foreground })
