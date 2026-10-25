@@ -302,6 +302,8 @@ export function createSayService(ctx, options = {}) {
       if (autoSelf) {
         const nextHistory = [...history, { role: 'user', text }, { role: 'assistant', text: reply }]
         autoSelf.maybe(nextHistory).catch(() => {})
+        // 窗口装满了就把旧的一段折成摘要卡（10 分钟冷却，不阻塞回话）。
+        if (typeof autoSelf.foldIfNeeded === 'function') autoSelf.foldIfNeeded().catch(() => {})
       }
     } catch { /* 原始记忆记不上不影响说话 */ }
     const recalledList = recalled.files.map((file) => ({ file }))

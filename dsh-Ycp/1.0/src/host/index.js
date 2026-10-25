@@ -372,8 +372,10 @@ export function apply(ctx) {
   const proactive = startTimer(ctx, { ledger })
 
   // 反思：每 30 分钟看一眼，够 6 小时且有新材料才真跑（从原始记忆长卡）。
+  // 折叠：同一拍顺手看一眼，聊天窗口满了就把旧的一段压成摘要卡。
   const reflectTimer = setInterval(() => {
     autoSelf.reflect().catch(() => {})
+    autoSelf.foldIfNeeded().catch(() => {})
   }, 30 * 60 * 1000)
   reflectTimer.unref?.()
 

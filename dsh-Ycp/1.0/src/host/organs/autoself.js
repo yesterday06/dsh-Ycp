@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { reflect as brainReflect, upsertCard } from './brain.js'
 import { appendDiary } from './memory.js'
+import { loadHistory, loadMessages } from './chatlog.js'
 import { appendGrowth, appendLog, homePaths, loadSettings, writeAtomic } from '../kernel/paths.js'
 
 const MIN_MESSAGES = 6
@@ -36,6 +37,24 @@ function saveState(state) {
   } catch { /* 失败不影响 */ }
 }
 
+function foldStatePath() {
+  return join(homePaths().root, '状态', '折叠.json')
+}
+
+function readFoldState() {
+  try {
+    return JSON.parse(readFileSync(foldStatePath(), 'utf8'))
+  } catch {
+    return { foldedUpTo: 0, lastAt: 0 }
+  }
+}
+
+function saveFoldState(state) {
+  try {
+    writeAtomic(foldStatePath(), JSON.stringify(state))
+  } catch { /* 失败不影响 */ }
+}
+
 async function streamText(llm, { provider, model, system, user, timeoutMs = 90_000 }) {
   let text = ''
   const stream = llm.stream({
@@ -57,14 +76,20 @@ export function createAutoSelf({ ctx } = {}) {
   let busy = false
 
   function model() {
-    const selection = ctx?.get?.('agentDefaultModel')?.currentSelection?.()
-    if (selection?.provider && selection?.model) return { provider: selection.provider, model: selection.model }
+    try {
+      const selection = ctx?.get?.('agentDefaultModel')?.currentSelection?.()
+      if (selection?.provider && selection?.model) return { provider: selection.provider, model: selection.model }
+    } catch { /* 服务未就绪 */ }
     return null
   }
 
   function llm() {
-    const service = ctx?.get?.('llm')
-    return service && typeof service.stream === 'function' ? service : null
+    try {
+      const service = ctx?.get?.('llm')
+      return service && typeof service.stream === 'function' ? service : null
+    } catch {
+      return null
+    }
   }
 
   async function maybe(history = []) {
@@ -168,5 +193,102 @@ export function createAutoSelf({ ctx } = {}) {
     })
   }
 
-  return { maybe, reflect }
+  /**
+   * 折叠：聊天窗口装满以后，把窗口之外那段旧对话压成一张「对话摘要」卡。
+   * 这就是记忆大脑里「写任务卡 → 换新会话」的等价物——她的新窗口一开局，
+   * 核心记忆 + 相关记忆里就有这段摘要，衔接不靠上下文容量。
+   */
+  async function fold() {
+    const settings = loadSettings()
+    const budget = Number(settings.historyChars) || 16000
+    const recent = loadHistory({ maxMessages: 4000, maxChars: budget })
+    if (recent.length < 2) return { ok: false, reason: 'short' }
+    const cutoff = Number(recent[0].at) || 0
+    if (!cutoff) return { ok: false, reason: 'no-time' }
+    const state = readFoldState()
+    if (Number(state.foldedUpTo || 0) >= cutoff) return { ok: false, reason: 'clean' }
+
+    // 窗口之前、上次折叠之后的那一段。
+    const older = loadMessages({ limit: 200, before: cutoff }).messages
+    const segment = older.filter((item) => item.at > Number(state.foldedUpTo || 0))
+    if (segment.length < 6) return { ok: false, reason: 'short' }
+
+    const service = llm()
+    const current = model()
+    if (!service || !current) return { ok: false, reason: 'no-model' }
+
+    const transcript = segment
+      .slice(-80)
+      .map((item) => `${item.role === 'assistant' ? '她' : '主人'}：${item.text}`)
+      .join('\n')
+      .slice(-12000)
+    const system = [
+      '你在替“阿闷”把一段聊完的对话折起来。只根据对话内容，不编造。',
+      '输出严格 JSON，不要解释、不要代码块：',
+      '{"summary":"这段聊了什么、结论是什么、还有什么没做完（100-300字，第三人称写她）","cards":[{"title":"中文短语","body":"值得长期记的事实/约定/偏好","tags":["标签"],"importance":3}]}',
+      'cards 最多 2 张，只写以后还用得上的；没用的就空数组。',
+    ].join('\n')
+
+    let text = ''
+    try {
+      text = await streamText(service, { provider: current.provider, model: current.model, system, user: transcript })
+    } catch (error) {
+      appendLog('折叠失败', { error: String(error?.message ?? error) })
+      return { ok: false, reason: 'llm' }
+    }
+    const raw = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '')
+    let data
+    try {
+      data = JSON.parse(raw)
+    } catch {
+      appendLog('折叠解析失败', { chars: raw.length })
+      return { ok: false, reason: 'parse' }
+    }
+
+    const now = new Date()
+    const pad = (n) => String(n).padStart(2, '0')
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+    const summary = String(data.summary || '').trim().slice(0, 600)
+    let applied = 0
+    if (summary) {
+      const result = upsertCard('global', {
+        title: `聊天 ${stamp}`,
+        body: summary,
+        tags: ['对话摘要', '聊天'],
+        importance: 3,
+        source: '折叠',
+      }, now)
+      if (result.ok) applied += 1
+    }
+    for (const card of Array.isArray(data.cards) ? data.cards.slice(0, 2) : []) {
+      const title = String(card?.title || '').trim()
+      const body = String(card?.body || '').trim()
+      if (!title || !body) continue
+      const result = upsertCard('global', {
+        title,
+        body,
+        tags: Array.isArray(card?.tags) ? card.tags : [],
+        importance: card?.importance,
+        source: `折叠 ${stamp}`,
+      }, now)
+      if (result.ok) applied += 1
+    }
+
+    saveFoldState({ foldedUpTo: cutoff, lastAt: Date.now(), messages: segment.length })
+    appendLog('折叠完成', { messages: segment.length, applied, cutoff })
+    return { ok: true, messages: segment.length, applied }
+  }
+
+  /** 定时看一眼：有旧对话就折，10 分钟内只试一次。 */
+  async function foldIfNeeded(options = {}) {
+    const settings = loadSettings()
+    if (settings.autoMemory === false && !options.force) return { ok: false, reason: 'off' }
+    const state = readFoldState()
+    if (!options.force && Date.now() - Number(state.lastAt || 0) < 10 * 60 * 1000) {
+      return { ok: false, reason: 'cooling' }
+    }
+    return fold()
+  }
+
+  return { maybe, reflect, fold, foldIfNeeded }
 }
