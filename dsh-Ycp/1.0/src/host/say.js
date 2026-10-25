@@ -13,10 +13,10 @@
 import { appendLog, loadPersona, loadSettings } from './kernel/paths.js'
 import { commitSay, checkSay, loadRateState } from './organs/gate.js'
 import { loadSchedule } from './organs/schedule.js'
-import { recordSay, moodSummary } from './organs/mood.js'
-import { appendRaw, bumpMemoryNudge, identityBlock, memoryNudgeText, resetMemoryNudge } from './organs/memory.js'
+import { loadMood, recordSay, moodSummary } from './organs/mood.js'
+import { appendRaw, bumpMemoryNudge, memoryNudgeText, resetMemoryNudge } from './organs/memory.js'
 import { appendTurn, loadHistory } from './organs/chatlog.js'
-import { memoryBlock, search } from './organs/search.js'
+import { bumpUsage, contextFor } from './organs/brain.js'
 import { buildSystem } from './kernel/prompt.js'
 
 const TIMEOUT_MS = 60_000
@@ -55,9 +55,28 @@ async function reasoningOffSupported(llm, provider, model) {
   }
 }
 
+/**
+ * 把状态翻译成语气指令。
+ * 不报数字（她不该张口就说“体力 62”），只说怎么说话。
+ */
+function toneLine(summary) {
+  if (!summary) return ''
+  const parts = []
+  const energy = Number(summary.energy) || 0
+  const mood = Number(summary.mood) || 0
+  const hunger = Number(summary.hunger) || 0
+  if (energy <= 25) parts.push('你很累，句子短、懒得展开')
+  else if (energy <= 45) parts.push('你有点没劲，能短就短')
+  if (hunger >= 80) parts.push('你饿了，可能顺口提吃的')
+  else if (hunger >= 60) parts.push('你有点饿')
+  if (mood <= 30) parts.push('你心情不好，嘴硬、不撒娇')
+  else if (mood >= 78) parts.push('你心情不错，愿意多接一句、会玩')
+  if (!parts.length) return ''
+  return '【你的状态】' + parts.join('；') + '。别说数字，也别解释自己的状态。'
+}
+
 /** 没有正文时，把终止块翻成人话。 */
-function noTextReason(finish) {
-  const { kind, failure } = finish ?? {}
+function noTextReason(finish) {  const { kind, failure } = finish ?? {}
   if (kind === 'aborted') return '等太久了，这次没说完'
   if (kind === 'max-tokens') return '话说满了，没吐出正文'
   if (kind !== 'error') return '模型没说话'
@@ -96,9 +115,9 @@ export function createSayService(ctx, options = {}) {
     // 放行就记账：模型请求马上要花出去了，失败也算一次尝试。
     commitSay(rate, now)
 
-    // 开口前先想起事：全局 + 归档按分数取 top-k，实时卡必读，日记不参与。
-    // 检索词带上最近几轮用户的话，免得一句“那个呢”就接不上。
-    const history = loadHistory()
+    // 开口前先想起事：核心记忆（按重要度）+ 相关记忆（按问题检索）+ 此刻场景。
+    // 聊天记录只带最近 8 轮——更早的事由记忆卡和日记承载，不再把全部历史重发。
+    const history = loadHistory({ maxMessages: 8, maxChars: 2400 })
     const historyBlock = history.length
       ? '\n\n【最近对话】\n' + history.map((item) => (item.role === 'assistant' ? '我：' : '主人：') + item.text).join('\n')
       : ''
@@ -108,7 +127,13 @@ export function createSayService(ctx, options = {}) {
       .map((item) => item.text)
       .join('\n')
     const query = recentUser ? recentUser + '\n' + text : text
-    const recalled = search(query, { topK: settings.memoryTopK, maxChars: settings.memoryMaxChars })
+    const recalled = contextFor(query)
+
+    // 状态进语气：体力 / 心情 / 饿，不报数字，只影响怎么说话。
+    let moodLine = ''
+    try {
+      moodLine = toneLine(moodSummary(loadMood(now, schedule)))
+    } catch { /* 状态读不到就不带 */ }
 
     // 感知：她开口前先知道主人现在在哪个窗口，不是瞎猜。
     let scene = ''
@@ -120,14 +145,21 @@ export function createSayService(ctx, options = {}) {
       }
     } catch { /* 桌面手不可用就不带 */ }
 
+    const memoryText = [
+      recalled.core ? '【你一直记得的】\n' + recalled.core : '',
+      recalled.recall ? '【你记得的】\n' + recalled.recall : '',
+      recalled.scene ? '【此刻】\n' + recalled.scene : '',
+    ].filter(Boolean).join('\n\n')
+
     const system = buildSystem({
       persona: loadPersona(),
       name: settings.name,
-      memories: [identityBlock(), memoryBlock(recalled)].filter(Boolean).join('\n\n'),
+      memories: memoryText,
       extra: [
         gate.sleepy
           ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
           : '',
+        moodLine,
         memoryNudgeText(),
         scene,
       ].filter(Boolean).join('\n\n'),
@@ -180,6 +212,7 @@ export function createSayService(ctx, options = {}) {
         // 改成“文字指令”：模型只输出一行 <<TOOL 工具名 {...}>>，宿主执行后把结果当对话喂回去。
         const CATALOG_IDS = [
           'memory.card', 'memory.raw', 'memory.list', 'memory.forget', 'memory.consolidate',
+          'memory.reflect', 'memory.check', 'memory.merge', 'memory.recall',
           'diary.write', 'persona.grow', 'name.set', 'signature.set', 'schedule.set', 'proactive.set',
           'qq.send', 'desktop.ui', 'desktop.clickText', 'desktop.setValue', 'desktop.window', 'desktop.launch', 'browser.login', 'browser.goto', 'browser.text', 'browser.click',
           'bili.comment', 'bili.like', 'bili.dynamic', 'site.api',
@@ -261,18 +294,15 @@ export function createSayService(ctx, options = {}) {
       appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms, channel } })
       appendTurn(text, reply)
       bumpMemoryNudge()
+      // 想过的事记一笔，下次更容易被想起。
+      if (recalled.files.length) bumpUsage(recalled.files)
       // 人不用提醒：攒够一段，后台自己整理成卡/日记/成长。
       if (autoSelf) {
         const nextHistory = [...history, { role: 'user', text }, { role: 'assistant', text: reply }]
         autoSelf.maybe(nextHistory).catch(() => {})
       }
     } catch { /* 原始记忆记不上不影响说话 */ }
-    const recalledList = [...recalled.hits, ...recalled.realtime].map((item) => ({
-      layer: item.layer,
-      file: item.file,
-      title: item.title,
-      score: item.score,
-    }))
+    const recalledList = recalled.files.map((file) => ({ file }))
 
     // 说完一句就结账：体力掉、饿一点、心情好一点、今天多说一句。
     let mood = null
@@ -298,6 +328,8 @@ export function createSayService(ctx, options = {}) {
       sleepy: Boolean(gate.sleepy),
       recalled: recalledList,
       mood,
+      // 这一轮真正发出去的上下文长度（账本按它算，不再只算一问一答）。
+      promptChars: system.length + historyBlock.length + text.length,
     }
   }
 

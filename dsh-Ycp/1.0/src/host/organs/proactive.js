@@ -233,6 +233,16 @@ export async function runOnce(ctx, options = {}) {
   } catch (error) {
     appendLog('主动状态结算失败', { error: String(error?.message ?? error) })
   }
+  // 主动说话也是花钱的，账本要记（以前这里漏了）。
+  if (options.ledger && typeof options.ledger.addToken === 'function') {
+    try {
+      options.ledger.addToken({
+        tokens: Math.max(1, Math.ceil((system.length + text.length) / 1.5)),
+        kind: 'chat',
+        note: '主动发言',
+      })
+    } catch { /* 记不上不影响说话 */ }
+  }
   appendLog('主动说了一句', { chars: text.length, source: picked.source })
 
   return { ok: true, fired: true, message, nextAt: next.nextAt }
@@ -271,12 +281,12 @@ export function markRead(ids) {
  * 每 60 秒看一眼。没条件就静默返回；有条件才真正生成。
  * @returns {object|null} 定时器句柄（没有 ctx.effect 时返回 null，方便自检）
  */
-export function startTimer(ctx) {
+export function startTimer(ctx, options = {}) {
   if (typeof ctx?.effect !== 'function') return null
   let timer = null
   ctx.effect(() => {
     timer = setInterval(() => {
-      runOnce(ctx).catch((error) => {
+      runOnce(ctx, { ledger: options.ledger }).catch((error) => {
         appendLog('主动发言调度出错', { error: String(error?.message ?? error) })
       })
     }, 60_000)

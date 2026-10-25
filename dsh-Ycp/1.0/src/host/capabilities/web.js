@@ -11,7 +11,7 @@
  * 查和读成功会记一次「今天查网」并掉一点体力。
  */
 import { appendLog } from '../kernel/paths.js'
-import { writeCard } from '../organs/memory.js'
+import { upsertCard } from '../organs/brain.js'
 import { recordWeb } from '../organs/mood.js'
 import { loadSchedule } from '../organs/schedule.js'
 import { search } from '../organs/search.js'
@@ -175,24 +175,11 @@ export function installWebTools(registry, { ctx }) {
       const bodyText = String(text ?? '').trim()
       if (!name) throw new Error('标题不能为空')
       if (!bodyText) throw new Error('内容不能为空')
-      const file = `${safeTitle(name) || '记忆'}.md`
       const tagList = Array.isArray(tags) ? tags.filter((tag) => typeof tag === 'string' && tag.trim()).map((tag) => tag.trim()) : []
-      const description = bodyText.replace(/\s+/g, ' ').slice(0, 60)
-      const content = [
-        '---',
-        `name: ${name}`,
-        `description: ${description}`,
-        `tags: [${tagList.join(', ')}]`,
-        '---',
-        '',
-        `# ${name}`,
-        '',
-        bodyText,
-        '',
-      ].join('\n')
-      const result = writeCard('global', file, content)
+      // 走统一入口：同类会合并进旧卡，不会又堆一张重复的。
+      const result = upsertCard('global', { title: name, body: bodyText, tags: tagList, source: '上网记住的' })
       if (!result.ok) throw new Error(result.error)
-      return { file: result.file, title: name, chars: content.length, backup: result.backup ? '有' : null }
+      return { file: result.file, title: name, merged: Boolean(result.merged), backup: result.backup ? '有' : null }
     },
   })
 

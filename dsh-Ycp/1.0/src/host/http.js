@@ -20,6 +20,7 @@ import { soundDir, soundStatus } from './appearance/sound.js'
 import { appendDiary, deleteCard, isLayer, LAYERS, listAll, readCard, todayDiary, writeCard } from './organs/memory.js'
 import { recordActivity, recordEvent, todaySummary } from './organs/mood.js'
 import { listForPanel, markRead, runOnce } from './organs/proactive.js'
+import { healthCheck } from './organs/brain.js'
 import { search } from './organs/search.js'
 import { describeStatus, loadSchedule, saveSchedule } from './organs/schedule.js'
 import { createSayService } from './say.js'
@@ -71,7 +72,7 @@ function readBody(req) {
   })
 }
 
-export function createHttpApi({ version, ctx, registry, browser, desktop, autonomy, pet, voice, balance, diary, ledger, sayService: injectedSay }) {
+export function createHttpApi({ version, ctx, registry, browser, desktop, autonomy, pet, voice, balance, diary, ledger, autoSelf, sayService: injectedSay }) {
   const sayService = injectedSay || createSayService(ctx)
   const tools = registry ?? null
 
@@ -226,6 +227,26 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           const maxChars = Number(url.searchParams.get('maxChars')) || settings.memoryMaxChars
           const result = search(query, { topK, maxChars })
           sendJson(res, 200, { ok: true, query, ...result })
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-Ycp/memory/check',
+        handler: handlerFor(async (req, res) => {
+          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
+          sendJson(res, 200, healthCheck())
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-Ycp/memory/reflect',
+        handler: handlerFor(async (req, res) => {
+          if (!writeGate(req, res)) return
+          if (!autoSelf || typeof autoSelf.reflect !== 'function') {
+            return sendJson(res, 503, { ok: false, error: '记忆服务没挂上' })
+          }
+          const result = await autoSelf.reflect({ force: true })
+          sendJson(res, result.ok ? 200 : 400, result)
         }),
       },
       {
@@ -653,8 +674,10 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           const result = await sayService.say(body)
           if (result.ok && ledger && typeof ledger.addToken === 'function') {
             try {
+              // 真实花的是「这一轮发出去的上下文」：人设 + 规则 + 记忆 + 历史 + 回复。
+              const sent = Number(result.promptChars) || ((body?.text || '').length + (result.text || '').length)
               ledger.addToken({
-                tokens: Math.ceil(((body?.text || '').length + (result.text || '').length) / 1.5),
+                tokens: Math.max(1, Math.ceil((sent + (result.text || '').length) / 1.5)),
                 kind: 'chat',
                 note: '面板聊天',
               })

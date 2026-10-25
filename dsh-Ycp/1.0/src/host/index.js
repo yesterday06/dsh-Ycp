@@ -30,6 +30,7 @@ import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
 import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
 import { appendDiary, appendRaw, consolidationBundle, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
+import { healthCheck, mergeCards, upsertCard } from './organs/brain.js'
 import { loadHistory } from './organs/chatlog.js'
 import { createAutoSelf } from './organs/autoself.js'
 import { startTimer } from './organs/proactive.js'
@@ -52,6 +53,8 @@ function readVersion() {
  */
 export function apply(ctx) {
   const version = readVersion()
+  // 反思工具要等 autoSelf 建好才能用；先留个位置。
+  let autoSelfRef = null
 
   let home = null
   let homeError = null
@@ -113,34 +116,72 @@ export function apply(ctx) {
 
   registry.registerTool({
     id: 'memory.card',
-    description: '新建或覆盖一张记忆卡（稳定的偏好、事实、约定、人物关系）。同类信息合并进一张卡，别记流水账；文件名用中文短语，如「主人的口味.md」。',
+    description: '记住一件事（稳定的偏好、事实、约定、人物关系）。同名同类会自动合并进旧卡，不会重复建；文件名由标题生成。',
     schema: {
       type: 'object',
       properties: {
         layer: { type: 'string', enum: ['global', 'archive', 'realtime'] },
-        file: { type: 'string', description: '单层 .md 文件名' },
-        title: { type: 'string' },
+        title: { type: 'string', description: '一句话标题，会变成文件名' },
         tags: { type: 'array', items: { type: 'string' } },
         body: { type: 'string' },
+        importance: { type: 'number', description: '重要度 1–5，默认 3；关于主人和长期约定的用 4–5' },
+        file: { type: 'string', description: '仅实时卡用：要写的文件名' },
       },
-      required: ['layer', 'file', 'title', 'body'],
+      required: ['layer', 'title', 'body'],
     },
-    run: async ({ layer, file, title, tags, body }) => {
-      const list = Array.isArray(tags) ? tags.map((tag) => String(tag).trim()).filter(Boolean) : []
-      const content = [
-        '---',
-        `name: ${String(title).slice(0, 60)}`,
-        `description: ${String(body).replace(/\s+/g, ' ').slice(0, 80)}`,
-        'metadata:',
-        `  type: ${String(layer)}`,
-        `  tags: [${list.map((tag) => JSON.stringify(tag)).join(', ')}]`,
-        `  updated: ${new Date().toISOString().slice(0, 10)}`,
-        '---',
-        '',
-        String(body).trim(),
-        '',
-      ].join('\n')
-      return writeCard(layer, file, content)
+    run: async ({ layer, file, title, tags, body, importance }) => {
+      const target = String(layer || 'global')
+      if (target === 'realtime') {
+        const name = String(file || '此刻.md')
+        const list = Array.isArray(tags) ? tags.map((tag) => String(tag).trim()).filter(Boolean) : []
+        const content = [
+          '---',
+          `name: ${String(title).slice(0, 60)}`,
+          `description: ${String(body).replace(/\s+/g, ' ').slice(0, 80)}`,
+          `tags: [${list.join(', ')}]`,
+          `updated: ${new Date().toISOString().slice(0, 10)}`,
+          '---',
+          '',
+          String(body).trim(),
+          '',
+        ].join('\n')
+        return writeCard('realtime', name, content)
+      }
+      return upsertCard(target === 'archive' ? 'archive' : 'global', {
+        title,
+        body,
+        tags: Array.isArray(tags) ? tags : [],
+        importance,
+        source: `对话 ${new Date().toISOString().slice(0, 10)}`,
+      })
+    },
+  })
+
+  registry.registerTool({
+    id: 'memory.check',
+    description: '记忆体检：列出重复卡、空卡、超长卡、久未用的卡。整理记忆前先跑一次。',
+    schema: { type: 'object', properties: {} },
+    run: async () => healthCheck(),
+  })
+
+  registry.registerTool({
+    id: 'memory.merge',
+    description: '把两张重复的记忆合并成一张：keep 保留，drop 并进去后删掉（删前自动备份）。',
+    schema: {
+      type: 'object',
+      properties: { keep: { type: 'string', description: '保留的文件名' }, drop: { type: 'string', description: '要并掉的单层文件名' } },
+      required: ['keep', 'drop'],
+    },
+    run: async ({ keep, drop }) => mergeCards(String(keep), String(drop)),
+  })
+
+  registry.registerTool({
+    id: 'memory.reflect',
+    description: '从今天的原始记忆里回看一遍，长出值得长期记住的卡和成长。想整理的时候用；平时它自己会做。',
+    schema: { type: 'object', properties: {} },
+    run: async () => {
+      if (!autoSelfRef) return { ok: false, error: '记忆服务还没准备好' }
+      return autoSelfRef.reflect({ force: true })
     },
   })
 
@@ -303,6 +344,7 @@ export function apply(ctx) {
 
   // 桌宠对话/记账：纯文件桥，不依赖面板登录态。
   const autoSelf = createAutoSelf({ ctx })
+  autoSelfRef = autoSelf
   const sayService = createSayService(ctx, { tools: registry, autoSelf, desktop })
   const bridge = createPetBridge({ say: sayService, voice, ledger })
   bridge.start()
@@ -313,7 +355,7 @@ export function apply(ctx) {
   // 日记：她自己写，只写进她自己的家。
   const diary = createDiaryWriter({ ctx })
 
-  const http = createHttpApi({ version, ctx, sayService, ledger, registry, browser, desktop, autonomy, pet, voice, balance, diary })
+  const http = createHttpApi({ version, ctx, sayService, ledger, registry, browser, desktop, autonomy, pet, voice, balance, diary, autoSelf })
 
   // 外观：主人勾了"放她出来"，宿主加载时就把桌宠窗口拉起来。
   if (loadSettings().appearance?.petEnabled) {
@@ -327,7 +369,13 @@ export function apply(ctx) {
   mountHttp(ctx, http)
 
   // 主动发言：每分钟看一眼，六道条件全满足才真的生成一句。
-  const proactive = startTimer(ctx)
+  const proactive = startTimer(ctx, { ledger })
+
+  // 反思：每 30 分钟看一眼，够 6 小时且有新材料才真跑（从原始记忆长卡）。
+  const reflectTimer = setInterval(() => {
+    autoSelf.reflect().catch(() => {})
+  }, 30 * 60 * 1000)
+  reflectTimer.unref?.()
 
   // 这行就是加载成功的标志；带上家在哪，排查时一眼看到。
   console.log(`[dsh-Ycp] v${version} 已加载${home ? ` · 家 ${home.root}` : ''}`)

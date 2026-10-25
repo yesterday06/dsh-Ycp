@@ -114,7 +114,9 @@ export function createPetBridge({ say, voice, ledger, intervalMs = 1200 } = {}) 
         if (shouldAskTokens(ledger)) {
           reply.text += '\n\n（小声）主人，今天的 token 快见底了，能不能再给我充一点…我还能干活。'
         }
-        const tokens = Math.ceil((request.text.length + result.text.length) / 1.5)
+        // 桌宠聊天也走真实上下文：包含人设、规则、记忆、最近对话。
+        const sent = Number(result.promptChars) || (request.text.length + result.text.length)
+        const tokens = Math.max(1, Math.ceil((sent + result.text.length) / 1.5))
         if (ledger && typeof ledger.addToken === 'function') {
           try { ledger.addToken({ tokens, kind: 'chat', note: '聊天' }) } catch { /* 记不上不影响说话 */ }
         }

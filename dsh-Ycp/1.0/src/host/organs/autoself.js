@@ -1,15 +1,17 @@
 /**
  * dsh-Ycp · 自动记忆（器官）
  *
- * 人不用提醒，聊完一段自己在后台把最近对话提炼成记忆。
- * 只做三件事：稳定的写卡、当天的事写日记、想通的写成长。
+ * 两条线：
+ *   1. maybe()：聊完一段（≥6 条、距上次 ≥10 分钟）把最近的对话提炼成卡 / 日记 / 成长。
+ *   2. reflect()：每天从原始记忆里回看一次（默认 6 小时内只做一次），长出更长期的卡。
  *
- * 触发：最近记录 ≥8 条，且距上次自动整理 ≥20 分钟；一次只跑一个。
- * 失败只写日志，不影响说话；想更主动/更省 token 可在 settings.autoMemory 关掉。
+ * 两条线都走 brain.upsertCard：先查重合并，再新建，不会再堆重复卡。
+ * 失败只写日志，不影响说话；想省 token 可在 settings.autoMemory 关掉。
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { appendDiary, resetMemoryNudge, writeCard } from './memory.js'
+import { reflect as brainReflect, upsertCard } from './brain.js'
+import { appendDiary } from './memory.js'
 import { appendGrowth, appendLog, homePaths, loadSettings, writeAtomic } from '../kernel/paths.js'
 
 const MIN_MESSAGES = 6
@@ -34,14 +36,36 @@ function saveState(state) {
   } catch { /* 失败不影响 */ }
 }
 
-function cleanFile(name, title) {
-  const raw = String(name || title || '记忆').replace(/\.md$/i, '')
-  const base = raw.replace(/[^\w\u4e00-\u9fa5（）()· -]/g, '').trim().slice(0, 40)
-  return `${base || '记忆'}.md`
+async function streamText(llm, { provider, model, system, user, timeoutMs = 90_000 }) {
+  let text = ''
+  const stream = llm.stream({
+    provider,
+    model,
+    system,
+    messages: [{ role: 'user', content: [{ type: 'text', text: user }] }],
+    temperature: 0.3,
+    sessionId: 'dsh-Ycp-auto-memory',
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  for await (const chunk of stream) {
+    if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') text += chunk.text
+  }
+  return text
 }
 
 export function createAutoSelf({ ctx } = {}) {
   let busy = false
+
+  function model() {
+    const selection = ctx?.get?.('agentDefaultModel')?.currentSelection?.()
+    if (selection?.provider && selection?.model) return { provider: selection.provider, model: selection.model }
+    return null
+  }
+
+  function llm() {
+    const service = ctx?.get?.('llm')
+    return service && typeof service.stream === 'function' ? service : null
+  }
 
   async function maybe(history = []) {
     const settings = loadSettings()
@@ -51,11 +75,9 @@ export function createAutoSelf({ ctx } = {}) {
     const state = readState()
     if (Date.now() - Number(state.lastAt || 0) < MIN_GAP_MS) return { ok: false, reason: 'cooling' }
 
-    const llm = ctx?.get?.('llm')
-    const selection = ctx?.get?.('agentDefaultModel')?.currentSelection?.()
-    if (!llm || typeof llm.stream !== 'function' || !selection?.provider || !selection?.model) {
-      return { ok: false, reason: 'no-model' }
-    }
+    const service = llm()
+    const current = model()
+    if (!service || !current) return { ok: false, reason: 'no-model' }
 
     busy = true
     try {
@@ -67,24 +89,14 @@ export function createAutoSelf({ ctx } = {}) {
       const system = [
         '你在替“阿闷”整理长期记忆。只根据下面的对话，不编造。',
         '输出严格 JSON，不要解释、不要代码块：',
-        '{"cards":[{"file":"中文短语.md","title":"标题","tags":["标签"],"body":"一段稳定的偏好/事实/约定/关系"}],"diary":"今天发生的事，第一人称，50-200字","growth":"如果她有想通/变化，写一句；没有就空字符串"}',
-        '规则：cards 最多 3 张，只写长期有用的；同类信息合并；不记密码、证件、密钥；没有可写的就空数组/空字符串。',
+        '{"cards":[{"title":"中文短语","body":"一段稳定的偏好/事实/约定/关系","tags":["标签"],"importance":3}],"diary":"今天发生的事，第一人称，50-200字","growth":"如果她有想通/变化，写一句；没有就空字符串"}',
+        '规则：cards 最多 3 张，只写长期有用的；同一件事只写一张；不记密码、证件、密钥；没有可写的就空数组/空字符串。',
+        'importance 1-5：5=关于主人和自己的根本事实，4=长期约定/偏好，3=普通事实，2=偶然经历，1=可不记。',
       ].join('\n')
-      const messages = [{ role: 'user', content: [{ type: 'text', text: transcript }] }]
+
       let text = ''
       try {
-        const stream = llm.stream({
-          provider: selection.provider,
-          model: selection.model,
-          system,
-          messages,
-          temperature: 0.3,
-          sessionId: 'dsh-Ycp-auto-memory',
-          signal: AbortSignal.timeout(90_000),
-        })
-        for await (const chunk of stream) {
-          if (chunk?.type === 'text-delta' && typeof chunk.text === 'string') text += chunk.text
-        }
+        text = await streamText(service, { provider: current.provider, model: current.model, system, user: transcript })
       } catch (error) {
         appendLog('自动记忆失败', { error: String(error?.message ?? error) })
         return { ok: false, reason: 'llm' }
@@ -100,26 +112,22 @@ export function createAutoSelf({ ctx } = {}) {
       }
 
       let applied = 0
+      let merged = 0
       for (const card of Array.isArray(data.cards) ? data.cards.slice(0, 3) : []) {
-        const file = cleanFile(card?.file, card?.title)
-        const title = String(card?.title || file.replace(/\.md$/, '')).slice(0, 60)
-        const body = String(card?.body || '').trim().slice(0, 1200)
-        if (!body) continue
-        const tags = Array.isArray(card?.tags) ? card.tags.map((tag) => String(tag).slice(0, 20)).slice(0, 8) : []
-        const content = [
-          '---',
-          `name: ${title}`,
-          `description: ${body.replace(/\s+/g, ' ').slice(0, 80)}`,
-          'metadata:',
-          '  type: global',
-          `  tags: [${tags.map((tag) => JSON.stringify(tag)).join(', ')}]`,
-          `  updated: ${new Date().toISOString().slice(0, 10)}`,
-          '---',
-          '',
+        const title = String(card?.title || '').trim()
+        const body = String(card?.body || '').trim()
+        if (!title || !body) continue
+        const result = upsertCard('global', {
+          title,
           body,
-          '',
-        ].join('\n')
-        if (writeCard('global', file, content).ok) applied += 1
+          tags: Array.isArray(card?.tags) ? card.tags : [],
+          importance: card?.importance,
+          source: `对话 ${new Date().toISOString().slice(0, 10)}`,
+        })
+        if (result.ok) {
+          applied += 1
+          if (result.merged) merged += 1
+        }
       }
       const diary = String(data.diary || '').trim()
       if (diary) {
@@ -133,9 +141,8 @@ export function createAutoSelf({ ctx } = {}) {
       }
 
       saveState({ lastAt: Date.now() })
-      resetMemoryNudge()
-      appendLog('自动记忆完成', { applied, cards: Array.isArray(data.cards) ? data.cards.length : 0, diary: Boolean(diary), growth: Boolean(growth) })
-      return { ok: true, applied }
+      appendLog('自动记忆完成', { applied, merged, cards: Array.isArray(data.cards) ? data.cards.length : 0, diary: Boolean(diary), growth: Boolean(growth) })
+      return { ok: true, applied, merged }
     } catch (error) {
       appendLog('自动记忆异常', { error: String(error?.message ?? error) })
       return { ok: false, reason: 'error' }
@@ -144,5 +151,21 @@ export function createAutoSelf({ ctx } = {}) {
     }
   }
 
-  return { maybe }
+  /** 从原始记忆里回看：默认 6 小时一次，force 可立刻做。 */
+  async function reflect(options = {}) {
+    const settings = loadSettings()
+    if (settings.autoMemory === false && !options.force) return { ok: false, reason: 'off' }
+    const service = llm()
+    const current = model()
+    if (!service || !current) return { ok: false, reason: 'no-model' }
+    return brainReflect({
+      llm: service,
+      provider: current.provider,
+      model: current.model,
+      force: Boolean(options.force),
+      minGapMs: Number(options.minGapMs) || 6 * 3600 * 1000,
+    })
+  }
+
+  return { maybe, reflect }
 }

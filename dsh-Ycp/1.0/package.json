@@ -1,6 +1,6 @@
 {
   "name": "dsh-Ycp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "大肥鱼：一个会用电脑、有状态、会记账、能自己上网做事的 DSH 桌宠个体。",
   "type": "module",
   "main": "src/host/index.js",

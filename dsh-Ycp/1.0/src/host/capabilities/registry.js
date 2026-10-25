@@ -141,7 +141,21 @@ export function createRegistry({ getSettings, log } = {}) {
   }
 
   /**
-   * 调一个工具：查工具 → 查手权限 → 校验参数 → 执行。
+   * 工具没显式声明 permission 时，按 id 推断一个，保证面板上的
+   * 「网页搜索 / 网页读取 / 记忆写入 / 记忆读取」四个开关真的管得住东西。
+   */
+  function impliedPermission(tool) {
+    if (tool.permission) return tool.permission
+    const id = tool.id
+    if (id === 'web.search') return 'webSearch'
+    if (id === 'web.fetch') return 'webFetch'
+    if (/^(memory\.(card|forget|merge|reflect|remember)|diary\.write|persona\.grow)$/.test(id)) return 'memoryWrite'
+    if (/^memory\.(list|raw|consolidate|check|recall)$/.test(id)) return 'memoryRead'
+    return null
+  }
+
+  /**
+   * 调一个工具：查工具 → 查手权限 → 查权限开关 → 校验参数 → 执行。
    * @returns {Promise<{ok: boolean, result?: unknown, reason?: string, error?: string}>}
    */
   async function invoke(id, args = {}) {
@@ -155,10 +169,11 @@ export function createRegistry({ getSettings, log } = {}) {
       }
     }
 
-    if (tool.permission) {
-      const allowed = settingsOf()?.permissions?.[tool.permission] !== false
+    const permKey = impliedPermission(tool)
+    if (permKey) {
+      const allowed = settingsOf()?.permissions?.[permKey] !== false
       if (!allowed) {
-        return { ok: false, reason: 'permission', error: `「${tool.permission}」这个权限关着` }
+        return { ok: false, reason: 'permission', error: `「${permKey}」这个权限关着` }
       }
     }
 
