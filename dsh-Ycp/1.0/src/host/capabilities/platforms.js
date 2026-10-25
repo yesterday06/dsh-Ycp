@@ -292,7 +292,7 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
       if (csrf && !payload.csrf) payload.csrf = csrf
     }
     const script = `(async () => {
-      const res = await fetch(${JSON.stringify(target)}, {
+      const res = await fetch(${JSON.stringify('https://api.bilibili.com' + target)}, {
         method: ${JSON.stringify(verb)},
         credentials: 'include',
         headers: { 'content-type': 'application/x-www-form-urlencoded' },
