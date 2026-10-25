@@ -31,6 +31,7 @@ import { createHttpApi, mountHttp } from './http.js'
 import { appendGrowth, appendLog, ensureHome, loadSettings, saveSettings } from './kernel/paths.js'
 import { appendDiary, appendRaw, consolidationBundle, deleteCard, listAll, listCards, writeCard } from './organs/memory.js'
 import { loadHistory } from './organs/chatlog.js'
+import { createAutoSelf } from './organs/autoself.js'
 import { startTimer } from './organs/proactive.js'
 
 const FALLBACK_VERSION = '0.1.0'
@@ -287,7 +288,8 @@ export function apply(ctx) {
   const ledger = createLedger()
 
   // 桌宠对话/记账：纯文件桥，不依赖面板登录态。
-  const sayService = createSayService(ctx, { tools: registry })
+  const autoSelf = createAutoSelf({ ctx })
+  const sayService = createSayService(ctx, { tools: registry, autoSelf })
   const bridge = createPetBridge({ say: sayService, voice, ledger })
   bridge.start()
 

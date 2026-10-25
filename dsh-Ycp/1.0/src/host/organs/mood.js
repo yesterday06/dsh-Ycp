@@ -14,15 +14,15 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { appendLog, homePaths, writeAtomic } from '../kernel/paths.js'
+import { appendLog, homePaths, loadSettings, writeAtomic } from '../kernel/paths.js'
 import { isAsleep } from './schedule.js'
 
 export const PER_HOUR = {
-  awake: { energy: -6, hunger: 5, moodDrift: 1 },
+  awake: { energy: -1.5, hunger: 5, moodDrift: 1 },
   asleep: { energy: 6, hunger: 0.2, moodGain: 2 },
 }
 
-export const SAY_COST = { energy: 2, hunger: 1, mood: 2 }
+export const SAY_COST = { energy: 1.5, hunger: 1, mood: 2 }
 
 function clamp(value, lo = 0, hi = 100) {
   return Math.min(hi, Math.max(lo, value))
@@ -85,7 +85,7 @@ export function decay(state, now = new Date(), schedule) {
   const hours = Math.min(minutes, 24 * 60) / 60
   const asleep = Boolean(schedule && isAsleep(schedule, now).asleep)
   const satiety = 100 - next.hunger
-  const energyFactor = satiety >= 70 ? 1.25 : satiety <= 30 ? 0.6 : 1
+  const energyFactor = satiety >= 70 ? 1.05 : satiety <= 30 ? 0.85 : 1
   const moodFactor = satiety >= 70 ? 1.15 : satiety <= 30 ? 0.55 : 1
 
   if (asleep) {
@@ -102,6 +102,29 @@ export function decay(state, now = new Date(), schedule) {
     if (hours >= 6) next.energy = clamp(next.energy + 2 * hours)
     if (hours >= 12) next.mood = clamp(next.mood - 0.8 * (hours - 12))
   }
+
+  // 饱食度主要跟余额走：低于阈值持续掉，高于阈值快速回满。
+  try {
+    const balancePath = join(homePaths().root, '状态', '余额.json')
+    if (existsSync(balancePath)) {
+      const cached = JSON.parse(readFileSync(balancePath, 'utf8'))
+      const total = Number(cached?.total)
+      if (Number.isFinite(total)) {
+        const threshold = Number(loadSettings()?.balance?.warnBelow) || 10
+        if (total < threshold) {
+          const deficit = Math.min(1, (threshold - total) / Math.max(1, threshold))
+          next.hunger = clamp(next.hunger + (10 + 35 * deficit) * hours)
+        } else {
+          next.hunger = clamp(next.hunger - 70 * hours)
+        }
+        next.balance = Math.round(total * 100) / 100
+        next.balanceAt = Number(cached?.at) || null
+      }
+    }
+  } catch { /* 没余额数据就按原来的饿法 */ }
+
+  // 吃饱了体力才慢慢回；饿着不额外惩罚，只掉基础的一点点。
+  if (!asleep && next.hunger <= 30) next.energy = clamp(next.energy + 3 * hours)
 
   // 跨天：只重置统计
   const today = dayStamp(now)

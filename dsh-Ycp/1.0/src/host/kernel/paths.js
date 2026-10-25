@@ -77,6 +77,7 @@ export const DEFAULT_SETTINGS = {
   voice: { enabled: false, name: '', rate: 0, pitch: 0, volume: 100, autoSpeak: false, neuralUrl: '', neuralModel: 'tts-1', style: '', timbre: 'natural' },
   sound: { enabled: true, volume: 40 },
   balance: { enabled: true, warnBelow: 10 },
+  autoMemory: true,
 }
 
 const SETTING_KEYS = new Set(Object.keys(DEFAULT_SETTINGS))

@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { appendLog, homePaths, writeAtomic } from '../kernel/paths.js'
+import { readBalanceCache } from '../appearance/balance.js'
 
 export const LEDGER_CATEGORIES = ['吃饭', '交通', '购物', '学习', '娱乐', '房租', '人情', '其他']
 
@@ -209,7 +210,11 @@ export function createLedger() {
     }
     recent.sort((a, b) => String(b.at).localeCompare(String(a.at)))
     const budget = data.budget
-    const remaining = Math.round((budget - monthExpense) * 100) / 100
+    const cachedBalance = readBalanceCache()
+    const actualBalance = Number.isFinite(Number(cachedBalance?.total)) ? Number(cachedBalance.total) : null
+    const remaining = actualBalance != null
+      ? Math.round(actualBalance * 100) / 100
+      : Math.round((budget - monthExpense) * 100) / 100
     return {
       todayTokens: Math.round(todayTokens),
       monthTokens: Math.round(monthTokens),
@@ -233,6 +238,9 @@ export function createLedger() {
       monthIncome: Math.round(monthIncome * 100) / 100,
       budget,
       remaining,
+      balance: actualBalance,
+      balanceAt: cachedBalance?.at ?? null,
+      balanceStale: cachedBalance ? Date.now() - Number(cachedBalance.at || 0) > 5 * 60 * 1000 : true,
       percent: budget > 0 ? Math.min(100, Math.round((monthExpense / budget) * 100)) : 0,
       byCategory: Object.entries(byCategory)
         .map(([category, amount]) => ({ category, amount: Math.round(amount * 100) / 100 }))

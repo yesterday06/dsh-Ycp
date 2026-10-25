@@ -68,6 +68,7 @@ function noTextReason(finish) {
 
 export function createSayService(ctx, options = {}) {
   const toolRegistry = options.tools || null
+  const autoSelf = options.autoSelf || null
   async function say(input, options = {}) {
     const now = options.now instanceof Date ? options.now : new Date()
     const text = String(input?.text ?? '').trim()
@@ -251,6 +252,11 @@ export function createSayService(ctx, options = {}) {
       appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms, channel } })
       appendTurn(text, reply)
       bumpMemoryNudge()
+      // 人不用提醒：攒够一段，后台自己整理成卡/日记/成长。
+      if (autoSelf) {
+        const nextHistory = [...history, { role: 'user', text }, { role: 'assistant', text: reply }]
+        autoSelf.maybe(nextHistory).catch(() => {})
+      }
     } catch { /* 原始记忆记不上不影响说话 */ }
     const recalledList = [...recalled.hits, ...recalled.realtime].map((item) => ({
       layer: item.layer,

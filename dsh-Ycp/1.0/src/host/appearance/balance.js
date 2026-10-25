@@ -18,7 +18,7 @@ function balanceFile() {
   return join(homePaths().root, '状态', '余额.json')
 }
 
-function readPersisted() {
+export function readBalanceCache() {
   const file = balanceFile()
   if (!existsSync(file)) return null
   try {
@@ -104,9 +104,9 @@ export function createBalance({ ctx, fetchImpl = globalThis.fetch } = {}) {
 
   async function status({ force = false } = {}) {
     const settings = loadSettings().balance
-    if (settings && settings.enabled === false) return { ...view(readPersisted()), ok: false, disabled: true }
+    if (settings && settings.enabled === false) return { ...view(readBalanceCache()), ok: false, disabled: true }
     if (!force && cache && Date.now() - cache.at < CACHE_MS) return view(cache.data)
-    const persisted = readPersisted()
+    const persisted = readBalanceCache()
     if (!force && persisted && Date.now() - Number(persisted.at || 0) < CACHE_MS) return view(persisted)
     const fresh = await refresh()
     if (fresh.ok) return fresh

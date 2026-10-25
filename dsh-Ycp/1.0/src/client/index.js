@@ -1013,6 +1013,15 @@ window.__ModuleLoader__.load({
           setLedger(data.summary)
         } catch { /* 预算没存上 */ }
       }
+      const saveBalanceWarn = async (value) => {
+        const amount = Number(value)
+        if (!Number.isFinite(amount) || amount < 0) return
+        try {
+          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ balance: { enabled: true, warnBelow: amount } }) })
+          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
+          setBalanceInfo((prev) => (prev ? { ...prev, warnBelow: amount } : prev))
+        } catch { /* 阈值没存上 */ }
+      }
       const saveApi = async () => {
         setApiBusy(true)
         setApiMsg('')
@@ -1168,6 +1177,9 @@ window.__ModuleLoader__.load({
                   h(Bar, { label: '体力', value: state.mood.energy, tone: 'energy' }),
                   h(Bar, { label: '心情', value: state.mood.mood, tone: 'mood' }),
                   h(Bar, { label: '饱食', value: state.mood.satiety ?? (100 - state.mood.hunger), tone: 'satiety' }),
+                  state.mood.balance != null
+                    ? h('div', { className: 'ycp-count' }, `余额 ¥${Number(state.mood.balance).toFixed(2)} · ${Number(state.mood.balance) < (Number(state.settings?.balance?.warnBelow) || 10) ? '低于阈值，饱食持续掉' : '高于阈值，饱食快速回满'}`)
+                    : null,
                   h('div', { className: 'ycp-stats' },
                     h('span', null, '说了 ', h('b', null, `${state.mood.stats.said} 句`)),
                     h('span', null, '主动 ', h('b', null, `${state.mood.stats.proactive} 次`)),
@@ -1200,6 +1212,10 @@ window.__ModuleLoader__.load({
                   },
                 }),
               ),
+              h('div', { className: 'ycp-subrow' },
+                h('span', { className: 'label' }, '饱食阈值（元）'),
+                h('input', { className: 'ycp-input', type: 'number', min: '0', step: '1', defaultValue: String(balanceInfo?.warnBelow ?? 10), onBlur: (event) => saveBalanceWarn(event.target.value) }),
+              ),
               balanceMsg
                 ? h('div', { className: 'ycp-msg bad' }, balanceMsg)
                 : (balanceInfo && balanceInfo.error && !balanceInfo.total
@@ -1222,15 +1238,15 @@ window.__ModuleLoader__.load({
                   ledgerTab === 'expense'
                     ? h('div', null,
                         h('div', { className: 'ycp-ledger-grid' },
-                          h('div', { className: 'ycp-stat-card' }, h('span', null, '今日预算'), h('b', null, `${Number(ledger.dailyBudget).toLocaleString()} tok`), h('i', null, `≈ ¥${(ledger.dailyBudget / 1e6 * 4).toFixed(2)}`)),
-                          h('div', { className: 'ycp-stat-card' }, h('span', null, '今日已用'), h('b', null, `${Number(ledger.todayTokens).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.todayCost).toFixed(2)}`)),
-                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月预算'), h('b', null, `${Number(ledger.monthlyBudget).toLocaleString()} tok`), h('i', null, `≈ ¥${(ledger.monthlyBudget / 1e6 * 4).toFixed(2)}`)),
-                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月已用'), h('b', null, `${Number(ledger.monthTokens).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.monthCost).toFixed(2)}`)),
-                          h('div', { className: 'ycp-stat-card' }, h('span', null, '总共消耗'), h('b', null, `${Number(ledger.totalTokens || 0).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.totalCost || 0).toFixed(2)}`)),
-                          h('div', { className: 'ycp-stat-card' }, h('span', null, '目前剩余'), h('b', { className: Number(ledger.remainingMonthly) < 0 ? 'low' : '' }, `${Number(ledger.remainingMonthly).toLocaleString()} tok`), h('i', null, `≈ ¥${(Number(ledger.remainingMonthly) / 1e6 * 4).toFixed(2)}`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '预算（自己填）'), h('b', null, `¥${Number(ledger.budget || 0).toFixed(2)}`), h('i', null, '每月目标')),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月已用'), h('b', null, `¥${Number(ledger.monthExpense || 0).toFixed(2)}`), h('i', null, '实际支出')),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '余额剩余'), h('b', { className: ledger.balance != null && Number(ledger.balance) < Number(ledger.budget) / 10 ? 'low' : '' }, ledger.balance != null ? `¥${Number(ledger.balance).toFixed(2)}` : `¥${Number(ledger.remaining || 0).toFixed(2)}`), h('i', null, ledger.balance != null ? '账户实际余额' : '预算减支出')),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '今日已用'), h('b', null, `¥${Number(ledger.todayCost || 0).toFixed(2)}`), h('i', null, '实际支出')),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '总共消耗'), h('b', null, `¥${Number(ledger.totalCost || 0).toFixed(2)}`), h('i', null, `${Number(ledger.totalTokens || 0).toLocaleString()} tok`)),
+                          h('div', { className: 'ycp-stat-card' }, h('span', null, '本月 tokens'), h('b', null, `${Number(ledger.monthTokens || 0).toLocaleString()} tok`), h('i', null, `≈ ¥${Number(ledger.monthCost || 0).toFixed(2)}`)),
                         ),
                         h('div', { className: 'ycp-meter' },
-                          h('i', { style: { width: `${Math.min(100, Math.round((ledger.monthTokens / ledger.monthlyBudget) * 100) || 0)}%`, background: ledger.monthTokens > ledger.monthlyBudget ? '#d9534f' : '#2f9e6e' } }),
+                          h('i', { style: { width: `${Math.min(100, Math.round((Number(ledger.monthExpense || 0) / Number(ledger.budget || 1)) * 100) || 0)}%`, background: Number(ledger.monthExpense) > Number(ledger.budget) ? '#d9534f' : '#2f9e6e' } }),
                         ),
                         h('div', { className: 'ycp-actions' },
                           h('button', { className: 'ycp-btn primary', onClick: () => window.open('https://platform.deepseek.com/top_up', '_blank') }, '喂食 / 去充值'),
@@ -1258,6 +1274,10 @@ window.__ModuleLoader__.load({
                                 h('button', { className: 'ycp-btn tiny', onClick: () => removeLedger(entry.id) }, '删'),
                               ))
                             : h('div', { className: 'ycp-empty' }, '还没消耗过 tokens'),
+                        ),
+                        h('div', { className: 'ycp-subrow' },
+                          h('span', { className: 'label' }, '钱预算（元）'),
+                          h('input', { className: 'ycp-input', type: 'number', min: '0', step: '1', defaultValue: String(ledger.budget ?? 0), onBlur: (event) => saveMoneyBudget(event.target.value) }),
                         ),
                         h('div', { className: 'ycp-subrow' },
                           h('span', { className: 'label' }, '每日预算'),
