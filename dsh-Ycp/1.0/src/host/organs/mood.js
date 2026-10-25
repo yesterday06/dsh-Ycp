@@ -18,11 +18,11 @@ import { appendLog, homePaths, loadSettings, writeAtomic } from '../kernel/paths
 import { isAsleep } from './schedule.js'
 
 export const PER_HOUR = {
-  awake: { energy: -1.5, hunger: 5, moodDrift: 1 },
-  asleep: { energy: 6, hunger: 0.2, moodGain: 2 },
+  awake: { energy: -0.8, hunger: 5, moodDrift: 1 },
+  asleep: { energy: 4, hunger: 0.2, moodGain: 2 },
 }
 
-export const SAY_COST = { energy: 1.5, hunger: 1, mood: 2 }
+export const SAY_COST = { energy: 1, hunger: 1, mood: 2 }
 
 function clamp(value, lo = 0, hi = 100) {
   return Math.min(hi, Math.max(lo, value))
@@ -89,17 +89,19 @@ export function decay(state, now = new Date(), schedule) {
   const moodFactor = satiety >= 70 ? 1.15 : satiety <= 30 ? 0.55 : 1
 
   if (asleep) {
-    next.energy = clamp(next.energy + PER_HOUR.asleep.energy * hours * energyFactor)
+    next.energy = clamp(next.energy + PER_HOUR.asleep.energy * hours * (satiety >= 70 ? 1.5 : 1))
     next.hunger = clamp(next.hunger + PER_HOUR.asleep.hunger * hours)
     next.mood = clamp(next.mood + PER_HOUR.asleep.moodGain * hours * moodFactor)
   } else {
     next.energy = clamp(next.energy + PER_HOUR.awake.energy * hours * energyFactor)
     next.hunger = clamp(next.hunger + PER_HOUR.awake.hunger * hours)
+    // 没事干就慢慢回体力；吃饱了回得快一点，饿着不额外回。
+    const idle = !next.lastSayAt || now.getTime() - Number(next.lastSayAt) >= 30 * 60 * 1000
+    if (idle) next.energy = clamp(next.energy + 1.2 * hours * (satiety >= 70 ? 1.4 : 1))
     // 清醒时心情往 50 漂：高了落一点，低了涨一点。
     const drift = PER_HOUR.awake.moodDrift * hours * moodFactor
     next.mood = clamp(next.mood > 50 ? next.mood - drift : next.mood + drift)
-    // 长时间没人理：她自己歇着慢慢回体力；冷落太久心情会掉。
-    if (hours >= 6) next.energy = clamp(next.energy + 2 * hours)
+    // 冷落太久心情会掉。
     if (hours >= 12) next.mood = clamp(next.mood - 0.8 * (hours - 12))
   }
 
@@ -122,9 +124,6 @@ export function decay(state, now = new Date(), schedule) {
       }
     }
   } catch { /* 没余额数据就按原来的饿法 */ }
-
-  // 吃饱了体力才慢慢回；饿着不额外惩罚，只掉基础的一点点。
-  if (!asleep && next.hunger <= 30) next.energy = clamp(next.energy + 3 * hours)
 
   // 跨天：只重置统计
   const today = dayStamp(now)

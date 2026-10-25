@@ -642,6 +642,7 @@ ipcMain.on('ycp:menu-pick', (_event, payload) => {
   const act = payload?.act
   const value = payload?.value
   if (act === 'chat') { toggleChatWindow(true); return }
+  if (act === 'bigchat') { toggleBigChat(); return }
   if (act === 'settings') { sendToWin('ycp:settings'); return }
   if (act === 'ledger') { sendToWin('ycp:ledger-open'); return }
   if (act === 'pin') { setPinned(!pinned); updateTray(); return }
