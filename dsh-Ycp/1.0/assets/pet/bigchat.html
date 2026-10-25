@@ -66,7 +66,6 @@
       <div class="panel">
         <h3>她的设置</h3>
         <div class="field">名字<input id="setName" /></div>
-        <div class="field">签名<textarea id="setSignature" rows="3"></textarea></div>
         <div class="field">模型接口<input id="setBaseUrl" placeholder="https://api.deepseek.com/v1" /></div>
         <div class="field">API Key<input id="setApiKey" placeholder="留空就不改" /></div>
         <div class="field">模型名<input id="setModel" placeholder="deepseek-chat" /></div>
@@ -74,7 +73,7 @@
         <button class="btn" id="saveSettings">保存</button>
         <button class="btn" id="openPanel">打开完整面板</button>
         <span class="muted" id="settingsMsg"></span>
-        <p class="muted">模型、权限、作息等完整设置可去面板改；这里放最常用的。</p>
+        <p class="muted">模型、记忆预算等完整设置去面板改；签名在她的空间里。</p>
       </div>
     </section>
 
@@ -152,7 +151,6 @@
       const data = await api.api('/settings', 'GET')
       const s = data.settings || data
       document.getElementById('setName').value = s.name || name
-      document.getElementById('setSignature').value = s.signature || ''
       document.getElementById('setBaseUrl').value = (s.model && s.model.baseUrl) || ''
       document.getElementById('setModel').value = (s.model && s.model.model) || ''
       document.getElementById('setAutoMemory').checked = s.autoMemory !== false
@@ -160,7 +158,7 @@
   }
   document.getElementById('saveSettings').onclick = async () => {
     try {
-      const body = { name: document.getElementById('setName').value.trim(), signature: document.getElementById('setSignature').value, autoMemory: document.getElementById('setAutoMemory').checked }
+      const body = { name: document.getElementById('setName').value.trim(), autoMemory: document.getElementById('setAutoMemory').checked }
       const baseUrl = document.getElementById('setBaseUrl').value.trim()
       const key = document.getElementById('setApiKey').value.trim()
       const modelName = document.getElementById('setModel').value.trim()

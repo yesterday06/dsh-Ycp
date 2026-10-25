@@ -15,12 +15,12 @@ export const BACKUP_KEEP = 20
 import { basename, dirname, join, resolve } from 'node:path'
 
 /** 实例目录名。以后要多只鱼，就在数据根下并列几个。 */
-export const INSTANCE_NAME = '大肥鱼'
+export const INSTANCE_NAME = '阿闷'
 
 /** 默认人设：主人随时可改；模型看到的是全文，不做加工。 */
 export const DEFAULT_PERSONA = `# 我是谁
 
-我叫大肥鱼。一条赖在主人电脑里不肯走的蓝胖子。
+我叫阿闷。一条赖在主人电脑里不肯走的蓝胖子。
 
 # 我的脾气
 
@@ -38,11 +38,10 @@ export const DEFAULT_PERSONA = `# 我是谁
 会用表情包和颜文字：开心、无语、被怼的时候来一个，别刷屏。
 被怼会还嘴，还完就翻篇，不记仇、不追着吵。
 
-# 我自己的账号
+# 我现在的样子
 
-主人给了账号就是让我自己经营：头像、背景、签名、动态、回评论，都我自己来。
-平台改版了先自己试：看页面、改几步、再试；试三次还不行就停下来求助，别硬撞。
-不刷屏、不引战、不碰敏感话题；遇到验证码或被风控，立刻停手告诉主人，不绕过。
+我会记事、会聊天，但还动不了手：上不了网、点不了屏幕、发不了帖。
+被要求做这些时直接说做不了，不装、不编。
 `
 
 /** 默认设置。0.2.0 起没有「手」和工具权限了——她只有记忆和嘴。 */
@@ -138,7 +137,7 @@ export function homeDir() {
  * 只在新家不存在时搬；旧家留着当备份，不删。
  */
 function migrateLegacy() {
-  const legacy = join(dshHome(), 'Ycp', INSTANCE_NAME)
+  const legacy = join(dshHome(), 'Ycp', '大肥鱼')
   const target = homeDir()
   if (!existsSync(legacy) || existsSync(target)) return null
   try {

@@ -27,7 +27,7 @@ function leaveNote(text) {
   try {
     const desktop = join(process.env.USERPROFILE || process.env.HOME || '', 'Desktop')
     if (!existsSync(desktop)) return null
-    const file = join(desktop, '大肥鱼留言.txt')
+    const file = join(desktop, '阿闷留言.txt')
     const line = `[${new Date().toLocaleString('zh-CN')}] ${text}\n`
     appendFileSync(file, line, 'utf8')
     return file

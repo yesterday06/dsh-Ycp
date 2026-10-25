@@ -52,12 +52,12 @@ export function timeContext(now = new Date()) {
 /**
  * 拼 system。
  * @param {{persona?: string, name?: string, now?: Date, memories?: string, extra?: string}} input
- *   memories 是 search.memoryBlock() 的产物；空串就整段省略，省 token。
+ *   memories 是已拼好的「核心记忆 / 相关记忆 / 此刻」文本；空串就整段省略，省 token。
  *   extra 是临时的状态提示（比如「这会儿困得厉害」），放在最后。
  */
 export function buildSystem({ persona, name, now = new Date(), memories = '', extra = '', rules = loadRules() } = {}) {
   const body = String(persona ?? '').trim() || '（人设还是空的，按你自己的样子说话。）'
-  const who = String(name ?? '').trim() || '大肥鱼'
+  const who = String(name ?? '').trim() || '阿闷'
   const memory = String(memories ?? '').trim()
   const tail = String(extra ?? '').trim()
   const parts = [

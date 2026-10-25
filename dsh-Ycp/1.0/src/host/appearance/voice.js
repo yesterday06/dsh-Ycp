@@ -23,7 +23,7 @@ const MAX_KEEP = 50
 const MAX_CHARS = 2000
 const RUN_TIMEOUT_MS = 30_000
 
-export const DEFAULT_SAMPLE = '你好呀，我是大肥鱼。今天食堂的番茄炒蛋三块钱一份，要不要一起去？'
+export const DEFAULT_SAMPLE = '你好呀，我是阿闷。今天食堂的番茄炒蛋三块钱一份，要不要一起去？'
 
 export const DEFAULT_VOICE = {
   enabled: true,

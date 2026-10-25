@@ -13,7 +13,6 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
 
-    const VERSION = '0.1.0'
     const API = '/api/dsh-Ycp'
 
     const CSS = `
@@ -218,7 +217,7 @@ window.__ModuleLoader__.load({
       return h('img', {
         className: props.className || 'ycp-portrait',
         src: '/api/dsh-Ycp/character.png',
-        alt: '大肥鱼',
+        alt: '阿闷',
         draggable: false,
       })
     }
@@ -1000,7 +999,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ycp-head' },
             h('div', null,
               h('div', { className: 'ycp-title' }, '记忆智能'),
-              h('div', { className: 'ycp-sub' }, `${state ? state.name : '大肥鱼'} · v${VERSION} · 鲸鱼娘`),
+              h('div', { className: 'ycp-sub' }, `${state ? state.name : '阿闷'} · v${state ? state.version : ''} · 鲸鱼娘`),
             ),
             pill,
           ),
@@ -1008,7 +1007,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ycp-hero' },
             h(BigFish),
             h('div', { className: 'ycp-hero-main' },
-              h('div', { className: 'ycp-hero-name' }, state ? state.settings.name : '大肥鱼'),
+              h('div', { className: 'ycp-hero-name' }, state ? state.settings.name : '阿闷'),
               h('div', { className: 'ycp-hero-sub' },
                 state && state.mood ? state.mood.label : '正在读取状态',
                 state && state.rhythm ? ` · ${state.rhythm.label}` : '',
@@ -1254,14 +1253,14 @@ window.__ModuleLoader__.load({
                 className: item.role === 'assistant' ? 'ycp-bubble' : 'ycp-bubble me',
               },
                 h('div', null,
-                  h('span', { className: 'ycp-bubble-name' }, item.role === 'assistant' ? (state ? state.name : '大肥鱼') : '主人'),
+                  h('span', { className: 'ycp-bubble-name' }, item.role === 'assistant' ? (state ? state.name : '阿闷') : '主人'),
                   '：', item.text,
                 ),
                 item.at ? h('div', { className: 'ycp-bubble-meta' }, `${clock(item.at)} · ${timeAgo(item.at)}`) : null,
               )),
               saying
                 ? h('div', { className: 'ycp-bubble ycp-typing' },
-                    h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '大肥鱼'}：`),
+                    h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '阿闷'}：`),
                     h('i', { className: 'ycp-dot' }), h('i', { className: 'ycp-dot' }), h('i', { className: 'ycp-dot' }),
                   )
                 : null,
@@ -1494,7 +1493,7 @@ window.__ModuleLoader__.load({
             proactive && proactive.messages && proactive.messages.length
               ? h('div', { className: 'ycp-bubble' },
                   h('div', null,
-                    h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '大肥鱼'}：`),
+                    h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '阿闷'}：`),
                     proactive.messages[0].text,
                   ),
                   h('div', { className: 'ycp-bubble-meta' },
@@ -1713,7 +1712,7 @@ window.__ModuleLoader__.load({
                   maxLength: 24,
                   disabled: busy,
                   onChange: (event) => setName(event.target.value),
-                  placeholder: '大肥鱼',
+                  placeholder: '阿闷',
                 }),
               ),
               h('label', { className: 'ycp-check' },

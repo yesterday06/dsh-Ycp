@@ -1,6 +1,6 @@
 {
   "name": "dsh-Ycp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "阿闷：有记忆、会聊天的桌宠个体。0.2.0 起只保留记忆与说话，动手能力整层移除、以后再重做。",
   "type": "module",
   "main": "src/host/index.js",

@@ -53,18 +53,3 @@ export function search(query, options = {}) {
 
   return { hits, realtime, tokens: tokenize(q).length }
 }
-
-/** 把命中结果拼成「你记得的」那一段（老接口，保留给工具/调试用）。 */
-export function memoryBlock({ hits = [], realtime = [] } = {}) {
-  const lines = []
-  for (const item of hits) {
-    if (!item.excerpt) continue
-    lines.push(`- ${item.title}：${item.excerpt}`)
-  }
-  for (const item of realtime) {
-    if (!item.excerpt) continue
-    lines.push(`- 此刻：${item.excerpt}`)
-  }
-  if (lines.length === 0) return ''
-  return ['【你记得的】', ...lines].join('\n')
-}
