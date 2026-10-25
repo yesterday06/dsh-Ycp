@@ -147,10 +147,17 @@ export function createSayService(ctx, options = {}) {
       usedModel = `${model.provider}/${model.model}`
       try {
         const wantsOff = await reasoningOffSupported(llm, model.provider, model.model)
+        // 模型接口只接受 [a-zA-Z0-9_-]；插件工具 id 带点（memory.raw、name.set），
+        // 发给模型时统一换成下划线，调用回来再映射回真实 id。
+        const toolIds = new Map()
         const tools = toolRegistry && typeof toolRegistry.listTools === 'function'
           ? toolRegistry.listTools()
               .filter((tool) => tool && tool.schema && tool.id)
-              .map((tool) => ({ name: tool.id, description: String(tool.description || ''), parameters: tool.schema }))
+              .map((tool) => {
+                const apiName = String(tool.id).replace(/[^a-zA-Z0-9_-]/g, '_')
+                toolIds.set(apiName, tool.id)
+                return { name: apiName, description: String(tool.description || ''), parameters: tool.schema }
+              })
           : []
         const messages = [{ role: 'user', content: [{ type: 'text', text }] }]
         let finalText = ''
@@ -193,7 +200,7 @@ export function createSayService(ctx, options = {}) {
           for (const call of list) {
             let args = {}
             try { args = JSON.parse(call.arguments || '{}') } catch { args = {} }
-            const result = toolRegistry ? await toolRegistry.invoke(call.name, args) : { ok: false, error: '没有可用的工具注册表' }
+            const result = toolRegistry ? await toolRegistry.invoke(toolIds.get(call.name) || call.name, args) : { ok: false, error: '没有可用的工具注册表' }
             const content = JSON.stringify(result).slice(0, 4000)
             messages.push({
               role: 'tool',
