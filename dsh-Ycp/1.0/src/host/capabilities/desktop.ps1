@@ -89,6 +89,15 @@ function Focus-Process($pidValue) {
 $action = [string]$p.action
 $result = @{ ok = $true; action = $action }
 
+function Get-TargetHandle($title) {
+  if ($title) {
+    $proc = Get-Process | Where-Object { $_.MainWindowTitle -and $_.MainWindowTitle -like ("*" + $title + "*") } | Select-Object -First 1
+    if (-not $proc) { Fail ("没找到窗口：" + $title) }
+    return $proc.MainWindowHandle
+  }
+  return [YcpWin]::GetForegroundWindow()
+}
+
 switch ($action) {
   'info' {
     $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -209,7 +218,7 @@ switch ($action) {
     $result.windowFound = [bool]($found.MainWindowHandle -and $found.MainWindowHandle -ne 0)
   }
   'uia' {
-    $h = [YcpWin]::GetForegroundWindow()
+    $h = Get-TargetHandle $p.window
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
     $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     $items = @()
@@ -227,7 +236,7 @@ switch ($action) {
     $result.elements = $items
   }
   'uiaClick' {
-    $h = [YcpWin]::GetForegroundWindow()
+    $h = Get-TargetHandle $p.window
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
     $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
     $needle = [string]$p.name
@@ -237,17 +246,23 @@ switch ($action) {
       if (([string]$e.Current.Name).Contains($needle)) { $hit = $e; break }
     }
     if (-not $hit) { Fail ("没找到界面元素：" + $needle) }
-    $rect = $hit.Current.BoundingRectangle
-    $x = [int]($rect.X + $rect.Width / 2)
-    $y = [int]($rect.Y + $rect.Height / 2)
-    [void][YcpWin]::SetCursorPos($x, $y)
-    Start-Sleep -Milliseconds 120
-    Send-Mouse $true $x $y
-    Start-Sleep -Milliseconds 60
-    Send-Mouse $false $x $y
+    $method = "mouse"
+    try {
+      $invoke = $hit.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
+      $invoke.Invoke()
+      $method = "invoke"
+    } catch {
+      $rect = $hit.Current.BoundingRectangle
+      $x = [int]($rect.X + $rect.Width / 2)
+      $y = [int]($rect.Y + $rect.Height / 2)
+      [void][YcpWin]::SetCursorPos($x, $y)
+      Start-Sleep -Milliseconds 120
+      Send-Mouse $true $x $y
+      Start-Sleep -Milliseconds 60
+      Send-Mouse $false $x $y
+    }
     $result.name = $needle
-    $result.x = $x
-    $result.y = $y
+    $result.method = $method
   }
   default { Fail ("unknown action: " + $action) }
 }

@@ -132,16 +132,16 @@ export function createDesktopHand(options = {}) {
     return result
   }
 
-  async function uia() {
-    const result = await run('uia')
+  async function uia(window) {
+    const result = await run('uia', window ? { window: String(window) } : {})
     remember('uia', String(result.elements?.length || 0) + ' 个元素')
     return result
   }
 
-  async function uiaClick(name) {
+  async function uiaClick(name, window) {
     const value = String(name ?? '').trim()
     if (!value) throw new Error('要点击哪个元素？')
-    const result = await run('uiaClick', { name: value })
+    const result = await run('uiaClick', { name: value, ...(window ? { window: String(window) } : {}) })
     remember('uiaClick', value)
     return result
   }
@@ -240,21 +240,24 @@ export function installDesktopTools(registry, hand) {
     },
     {
       id: 'desktop.ui',
-      description: '列出当前前台窗口里能点的按钮/菜单/输入框（名字 + 坐标），像人一样先看界面再点',
+      description: '读一个窗口里能点的按钮/菜单/输入框（名字 + 坐标）；给 window 就后台读那个窗口，不抢前台',
       hand: 'desktop',
-      schema: { type: 'object', properties: {}, required: [] },
-      run: async () => hand.uia(),
+      schema: { type: 'object', properties: { window: { type: 'string', description: '窗口标题的一部分，省略=当前前台' } }, required: [] },
+      run: async ({ window }) => hand.uia(window),
     },
     {
       id: 'desktop.clickText',
-      description: '按名字点击当前前台窗口里的按钮/菜单/输入框（先 desktop.ui 看有什么）',
+      description: '按名字点击窗口里的按钮/菜单/输入框；给 window 就后台点，不抢前台、不吵主人',
       hand: 'desktop',
       schema: {
         type: 'object',
-        properties: { name: { type: 'string', description: '元素名字的一部分，比如“发送”“登录”' } },
+        properties: {
+          name: { type: 'string', description: '元素名字的一部分，比如“发送”“登录”' },
+          window: { type: 'string', description: '窗口标题的一部分，省略=当前前台' },
+        },
         required: ['name'],
       },
-      run: async ({ name }) => hand.uiaClick(name),
+      run: async ({ name, window }) => hand.uiaClick(name, window),
     },
     {
       id: 'desktop.screenshot',
