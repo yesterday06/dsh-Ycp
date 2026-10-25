@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('ycpPet', {
   action: (kind, value) => ipcRenderer.send('ycp:action', { kind, value }),
   chatSend: (text) => ipcRenderer.send('ycp:chat-send', text),
   history: () => ipcRenderer.invoke('ycp:history'),
+  diary: () => ipcRenderer.invoke('ycp:diary'),
   ledger: (payload) => ipcRenderer.send('ycp:ledger', payload),
   menuPick: (act, value) => ipcRenderer.send('ycp:menu-pick', { act, value }),
   chatResize: (expanded) => ipcRenderer.send('ycp:chat-resize', Boolean(expanded)),

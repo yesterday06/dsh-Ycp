@@ -2,70 +2,161 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>跟阿闷说话</title>
+<title>阿闷 · 总终端</title>
 <style>
   @font-face { font-family:'RuanTang'; src:url('../fonts/ruantang.ttf') format('truetype'); }
-  html,body { margin:0; padding:0; height:100%; background:transparent; overflow:hidden; user-select:none; font-family:'RuanTang','Microsoft YaHei',sans-serif; }
-  .card { margin:8px; height:calc(100% - 16px); display:flex; flex-direction:column; border:2px solid #8fd9f4; border-radius:18px; box-shadow:0 16px 36px rgba(20,70,110,.28); overflow:hidden;
-    background:linear-gradient(180deg,rgba(250,254,255,.97),rgba(226,247,255,.97)), url('../character/character.png') center bottom / 60% no-repeat; }
-  .bar { -webkit-app-region:drag; display:flex; align-items:center; justify-content:space-between; padding:8px 12px; color:#2a7fb6; font-size:13px; background:rgba(255,255,255,.55); }
+  :root { --line:#bfe6f7; --ink:#22475f; --blue:#2a7fb6; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:transparent; overflow:hidden; font-family:'RuanTang','Microsoft YaHei',sans-serif; color:var(--ink); }
+  .shell { margin:8px; height:calc(100% - 16px); display:flex; border:2px solid #8fd9f4; border-radius:18px; overflow:hidden; box-shadow:0 18px 40px rgba(20,70,110,.28); background:rgba(248,253,255,.97); }
+  .side { width:190px; background:linear-gradient(180deg,#eaf9ff,#dff3ff); border-right:1.5px solid var(--line); display:flex; flex-direction:column; }
+  .brand { -webkit-app-region:drag; padding:12px 12px 8px; display:flex; align-items:center; gap:8px; }
+  .brand img { width:34px; height:34px; border-radius:50%; background:#fff; border:1.5px solid var(--line); }
+  .brand b { font-size:15px; color:#1d5d88; }
+  .tab { padding:9px 14px; margin:2px 8px; border-radius:10px; font-size:13px; color:#3d7a9e; cursor:pointer; }
+  .tab.on { background:#fff; color:#1d5d88; box-shadow:0 3px 10px rgba(42,127,182,.12); }
+  .side .foot { margin-top:auto; padding:10px; font-size:10px; color:#86adc2; }
+  .main { flex:1; min-width:0; display:flex; flex-direction:column; background:linear-gradient(180deg,rgba(255,255,255,.6),rgba(232,249,255,.5)), url('../character/character.png') right bottom / 46% no-repeat; }
+  .bar { -webkit-app-region:drag; display:flex; align-items:center; justify-content:space-between; padding:9px 14px; border-bottom:1px solid #e2f3fb; background:rgba(255,255,255,.65); }
+  .bar .who { font-size:13px; color:#2a7fb6; }
   .bar button { -webkit-app-region:no-drag; border:0; background:transparent; color:#7aa6bf; font-size:15px; cursor:pointer; }
-  .log { flex:1; min-height:0; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
-  .msg { max-width:82%; padding:8px 11px; border-radius:14px; font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+  .page { flex:1; min-height:0; display:none; flex-direction:column; }
+  .page.on { display:flex; }
+  .log { flex:1; min-height:0; overflow-y:auto; padding:12px 16px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:78%; padding:8px 12px; border-radius:14px; font-size:13px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
   .me { align-self:flex-end; background:#2a7fb6; color:#fff; border-bottom-right-radius:4px; }
-  .her { align-self:flex-start; background:rgba(255,255,255,.96); color:#22475f; border:1.5px solid #bfe6f7; border-bottom-left-radius:4px; }
-  .her .meme { display:block; max-width:180px; max-height:120px; object-fit:contain; margin:5px 0 2px; border-radius:9px; }
-  .status { padding:0 12px 3px; font-size:11px; color:#7aa6bf; min-height:13px; }
-  .row { display:flex; gap:7px; padding:0 10px 10px; }
-  input { flex:1; min-width:0; border:2px solid #bfe6f7; border-radius:11px; padding:7px 10px; font-family:inherit; font-size:13px; outline:none; background:#f8fdff; color:#1b3c53; }
-  button.send { border:0; border-radius:11px; padding:0 15px; background:linear-gradient(135deg,#66c8f2,#2a7fb6); color:#fff; font-size:13px; font-family:inherit; cursor:pointer; }
-  .log::-webkit-scrollbar { width:6px; } .log::-webkit-scrollbar-thumb { background:#bfe6f7; border-radius:3px; }
+  .her { align-self:flex-start; background:rgba(255,255,255,.97); border:1.5px solid var(--line); border-bottom-left-radius:4px; }
+  .her .meme { display:block; max-width:190px; max-height:130px; object-fit:contain; margin:5px 0 2px; border-radius:9px; }
+  .status { padding:0 16px 3px; font-size:11px; color:#7aa6bf; min-height:13px; }
+  .row { display:flex; gap:7px; padding:0 12px 12px; }
+  input, textarea { border:2px solid var(--line); border-radius:11px; padding:7px 10px; font-family:inherit; font-size:13px; outline:none; background:#f8fdff; color:#1b3c53; width:100%; }
+  .row input { flex:1; }
+  button.send { border:0; border-radius:11px; padding:0 16px; background:linear-gradient(135deg,#66c8f2,#2a7fb6); color:#fff; font-size:13px; cursor:pointer; }
+  .panel { padding:14px 18px; overflow-y:auto; }
+  .panel h3 { margin:4px 0 10px; font-size:14px; color:#1d5d88; }
+  .panel .field { margin-bottom:10px; font-size:12px; color:#5b8aa5; }
+  .panel .field input, .panel .field textarea { margin-top:4px; }
+  .btn { border:1.5px solid var(--line); border-radius:10px; background:#fff; color:var(--blue); padding:5px 12px; font-family:inherit; font-size:12px; cursor:pointer; }
+  .diary { white-space:pre-wrap; font-size:12.5px; line-height:1.7; background:#fff; border:1.5px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:10px; }
+  .diary h4 { margin:0 0 6px; color:#2a7fb6; font-size:13px; }
+  .muted { color:#86adc2; font-size:11px; }
+  ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-thumb { background:#bfe6f7; border-radius:3px; }
 </style>
 </head>
 <body>
-  <div class="card">
-    <div class="bar"><span>💬 <span id="petName">阿闷</span></span><button id="close" title="关闭">✕</button></div>
-    <div class="log" id="log"></div>
-    <div class="status" id="status">回车发送，记录会保留</div>
-    <div class="row"><input id="text" placeholder="说点什么…" maxlength="1000" /><button class="send" id="send">发送</button></div>
-  </div>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><img src="../character/icon.png" alt="" /><b id="brandName">阿闷</b></div>
+    <div class="tab on" data-page="chat">💬 聊天</div>
+    <div class="tab" data-page="settings">⚙ 设置</div>
+    <div class="tab" data-page="diary">📔 日记</div>
+    <div class="foot">总终端 · 桌宠只是入口</div>
+  </aside>
+  <main class="main">
+    <div class="bar"><span class="who" id="who">💬 跟阿闷说话</span><button id="close">✕</button></div>
+
+    <section class="page on" data-page="chat">
+      <div class="log" id="log"></div>
+      <div class="status" id="status">回车发送 · 记录会保留</div>
+      <div class="row"><input id="text" placeholder="说点什么…" maxlength="2000" /><button class="send" id="send">发送</button></div>
+    </section>
+
+    <section class="page" data-page="settings">
+      <div class="panel">
+        <h3>她的设置</h3>
+        <div class="field">名字<input id="setName" /></div>
+        <div class="field">签名<textarea id="setSignature" rows="3"></textarea></div>
+        <button class="btn" id="saveSettings">保存</button>
+        <span class="muted" id="settingsMsg"></span>
+        <p class="muted">模型、权限、作息等完整设置可去面板改；这里放最常用的。</p>
+      </div>
+    </section>
+
+    <section class="page" data-page="diary">
+      <div class="panel" id="diaryList"><p class="muted">读日记中…</p></div>
+    </section>
+  </main>
+</div>
 <script>
-  const api = window.ycpPet || { chatSend(){}, onChatReply(){}, history(){ return Promise.resolve([]) } }
-  if (api.config && api.config.name) document.getElementById('petName').textContent = api.config.name
+  const api = window.ycpPet || { chatSend(){}, onChatReply(){}, history(){ return Promise.resolve([]) }, api(){ return Promise.reject(new Error('no api')) } }
+  const name = (api.config && api.config.name) || '阿闷'
+  document.getElementById('brandName').textContent = name
+  document.getElementById('who').textContent = '💬 跟' + name + '说话'
   const log = document.getElementById('log')
   const input = document.getElementById('text')
   const status = document.getElementById('status')
+
   function scroll() { log.scrollTop = log.scrollHeight }
   function add(kind, text, meme) {
-    const element = document.createElement('div')
-    element.className = 'msg ' + kind
+    const el = document.createElement('div')
+    el.className = 'msg ' + kind
     const span = document.createElement('span')
     span.textContent = text
-    element.appendChild(span)
+    el.appendChild(span)
     if (meme) {
-      const image = document.createElement('img')
-      image.className = 'meme'
-      image.src = '../memes/' + encodeURIComponent(String(meme).split(/[\\/]/).pop())
-      element.appendChild(image)
+      const img = document.createElement('img')
+      img.className = 'meme'
+      img.src = '../memes/' + encodeURIComponent(String(meme).split(/[\\/]/).pop())
+      el.appendChild(img)
     }
-    log.appendChild(element); scroll()
+    log.appendChild(el); scroll()
   }
   function send() {
-    const text = input.value.trim()
-    if (!text) return
+    const text = input.value.trim(); if (!text) return
     input.value = ''; add('me', text); status.textContent = '她正在想…'
     api.chatSend(text)
   }
   document.getElementById('send').onclick = send
   document.getElementById('close').onclick = () => window.close()
-  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') send() })
-  if (typeof api.onChatReply === 'function') api.onChatReply((reply) => {
-    status.textContent = reply && reply.ok ? '回声了' : (reply && reply.error ? reply.error : '没回成')
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send() })
+  if (api.onChatReply) api.onChatReply((reply) => {
+    status.textContent = reply && reply.ok ? '回声了' : ((reply && reply.error) || '没回成')
     add('her', (reply && reply.text) || '……', reply && reply.meme)
   })
-  if (typeof api.history === 'function') api.history().then((list) => {
+  if (api.history) api.history().then((list) => {
     for (const item of Array.isArray(list) ? list : []) add(item.role === 'assistant' ? 'her' : 'me', item.text)
   }).catch(() => {})
+
+  document.querySelectorAll('.tab').forEach((tab) => {
+    tab.onclick = () => {
+      document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('on', t === tab))
+      document.querySelectorAll('.page').forEach((p) => p.classList.toggle('on', p.dataset.page === tab.dataset.page))
+      if (tab.dataset.page === 'diary') loadDiary()
+      if (tab.dataset.page === 'settings') loadSettings()
+    }
+  })
+
+  async function loadSettings() {
+    try {
+      const data = await api.api('/settings', 'GET')
+      const s = data.settings || data
+      document.getElementById('setName').value = s.name || name
+      document.getElementById('setSignature').value = s.signature || ''
+    } catch { document.getElementById('settingsMsg').textContent = '读不到设置' }
+  }
+  document.getElementById('saveSettings').onclick = async () => {
+    try {
+      const body = { name: document.getElementById('setName').value.trim(), signature: document.getElementById('setSignature').value }
+      await api.api('/settings', 'PUT', body)
+      document.getElementById('settingsMsg').textContent = '已保存'
+    } catch { document.getElementById('settingsMsg').textContent = '保存失败' }
+  }
+  async function loadDiary() {
+    const box = document.getElementById('diaryList')
+    if (box.dataset.loaded) return
+    try {
+      const list = await api.diary()
+      box.innerHTML = ''
+      if (!Array.isArray(list) || !list.length) { box.innerHTML = '<p class="muted">还没写日记。</p>'; return }
+      for (const item of list.slice(0, 10)) {
+        const el = document.createElement('div'); el.className = 'diary'
+        const h = document.createElement('h4'); h.textContent = item.name; el.appendChild(h)
+        const p = document.createElement('div'); p.textContent = item.content; el.appendChild(p)
+        box.appendChild(el)
+      }
+      box.dataset.loaded = '1'
+    } catch { box.innerHTML = '<p class="muted">日记读不出来。</p>' }
+  }
 </script>
 </body>
 </html>

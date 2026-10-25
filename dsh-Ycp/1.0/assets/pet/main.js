@@ -296,6 +296,9 @@ function sendReply(payload) {
   sendToWin('ycp:reply', payload)
   if (chatWin && !chatWin.isDestroyed()) chatWin.webContents.send('ycp:chat-reply', payload)
   if (bigChatWin && !bigChatWin.isDestroyed()) bigChatWin.webContents.send('ycp:chat-reply', payload)
+  if (tray && (!bigChatWin || bigChatWin.isDestroyed() || !bigChatWin.isVisible())) {
+    try { tray.displayBalloon({ title: NAME, content: String(payload?.text || '有新消息').slice(0, 120) }) } catch { /* 气泡失败不挡 */ }
+  }
 }
 
 function setPinned(value) {
@@ -352,6 +355,9 @@ function toggleVisible() {
 function updateTray() {
   if (!tray) return
   const menu = Menu.buildFromTemplate([
+    { label: '💬 跟' + NAME + '说话', click: () => toggleBigChat() },
+    { label: '📥 消息盒子', click: () => toggleBigChat() },
+    { type: 'separator' },
     { label: '显示 / 隐藏', click: () => toggleVisible() },
     { label: pinned ? '取消固定（恢复点击）' : '固定（点不到她）', click: () => setPinned(!pinned) },
     {
@@ -534,6 +540,20 @@ ipcMain.handle('ycp:history', () => {
   }
 })
 
+ipcMain.handle('ycp:diary', () => {
+  try {
+    const home = process.env.YCP_HOME || ''
+    const dir = path.join(home, '记忆', '日记')
+    const files = fs.readdirSync(dir).filter((name) => name.endsWith('.md')).sort().reverse()
+    return files.slice(0, 12).map((name) => ({
+      name: name.replace(/\.md$/, ''),
+      content: fs.readFileSync(path.join(dir, name), 'utf8').slice(0, 4000),
+    }))
+  } catch {
+    return []
+  }
+})
+
 let bigChatWin = null
 function toggleBigChat() {
   if (bigChatWin && !bigChatWin.isDestroyed()) {
@@ -541,10 +561,10 @@ function toggleBigChat() {
     bigChatWin.show(); bigChatWin.focus(); return
   }
   bigChatWin = new BrowserWindow({
-    width: 420,
-    height: 640,
-    minWidth: 340,
-    minHeight: 460,
+    width: 900,
+    height: 680,
+    minWidth: 720,
+    minHeight: 520,
     frame: false,
     resizable: true,
     show: false,

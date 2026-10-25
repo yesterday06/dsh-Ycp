@@ -53,6 +53,7 @@
   const api = window.ycpPet || { menuPick(){}, onMenuState(){} }
   if (api.config && api.config.name) { const el = document.getElementById('petName'); if (el) el.textContent = api.config.name }
   const send = (act, value) => { if (typeof api.menuPick === 'function') api.menuPick(act, value) }
+  const headEl = document.querySelector('.head'); if (headEl) { headEl.style.cursor = 'pointer'; headEl.addEventListener('click', () => send('bigchat')) }
   document.getElementById('pin').addEventListener('click', () => send('pin'))
   document.querySelectorAll('[data-act]:not(#pin):not(#gravity)').forEach((element) => {
     element.addEventListener('click', () => send(element.dataset.act))
