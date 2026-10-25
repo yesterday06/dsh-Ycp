@@ -52,6 +52,12 @@ window.__ModuleLoader__.load({
       .ycp-bubble-meta { color:var(--dsw-alias-label-secondary); font-size:11px; margin-top:6px; }
 .ycp-chatlog { max-height:420px; overflow-y:auto; margin-bottom:10px; padding-right:4px; }
 .ycp-bubble.me { background:rgba(47,158,110,.06); }
+.ycp-perms { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:10px 0; }
+.ycp-perm { text-align:left; border:1px solid var(--dsw-alias-border-l1); border-radius:12px; background:var(--dsw-alias-bg-base); padding:10px 12px; cursor:pointer; }
+.ycp-perm.on { border-color:#2f9e6e; box-shadow:0 0 0 2px rgba(47,158,110,.15); background:rgba(47,158,110,.05); }
+.ycp-perm-name { font-weight:600; margin-bottom:4px; }
+.ycp-perm-desc { font-size:12px; line-height:1.6; color:var(--dsw-alias-label-secondary); }
+.ycp-perm-warn { margin-top:6px; font-size:12px; color:#d9534f; }
       .ycp-typing { display:flex; align-items:center; gap:5px; }
       .ycp-dot { width:6px; height:6px; border-radius:50%; background:#2f8fce; display:inline-block; animation:ycp-blink 1.2s infinite ease-in-out; }
       .ycp-dot:nth-child(3) { animation-delay:.2s; }
@@ -318,6 +324,9 @@ window.__ModuleLoader__.load({
       const [recallChars, setRecallChars] = React.useState(900)
       const [historyChars, setHistoryChars] = React.useState(16000)
       const [autoReflect, setAutoReflect] = React.useState(true)
+      const [permLevel, setPermLevel] = React.useState('jail')
+      const [permMsg, setPermMsg] = React.useState('')
+      const [permBusy, setPermBusy] = React.useState(false)
       const lowSoundPlayed = React.useRef(false)
 
       const load = React.useCallback(async () => {
@@ -326,6 +335,7 @@ window.__ModuleLoader__.load({
           setState(data)
           setName(data.settings.name)
           setEnabled(data.settings.enabled)
+          if (data.permission && data.permission.level) setPermLevel(data.permission.level)
           setCoreChars(Number(data.settings.memoryCoreChars) || 1200)
           setRecallChars(Number(data.settings.memoryRecallChars) || 900)
           setHistoryChars(Number(data.settings.historyChars) || 16000)
@@ -454,6 +464,33 @@ window.__ModuleLoader__.load({
           setPersonaMsg(`保存失败：${String((cause && cause.message) || cause)}`)
         } finally {
           setPersonaBusy(false)
+        }
+      }
+
+      const savePermissionLevel = async () => {
+        if (permBusy) return
+        if (permLevel === 'full') {
+          const ua = typeof window === 'undefined' ? null : window
+          const ok = ua && typeof ua.confirm === 'function'
+            ? ua.confirm('完整权限会放开系统目录和所有软件，出事可能救不回来。确定要开吗？')
+            : false
+          if (!ok) return
+        }
+        setPermBusy(true)
+        setPermMsg('')
+        try {
+          const data = await call('/permission', {
+            method: 'POST',
+            headers: { 'x-ycp-user': 'panel' },
+            body: JSON.stringify({ level: permLevel, confirm: permLevel === 'full' ? 'FULL' : '' }),
+          })
+          setState((prev) => (prev ? { ...prev, permission: data } : prev))
+          const info = data && data.levelInfo ? data.levelInfo : null
+          setPermMsg(`已切到「${info ? info.name : permLevel}」· ${clock()}`)
+        } catch (cause) {
+          setPermMsg(`改不了：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setPermBusy(false)
         }
       }
 
@@ -984,6 +1021,14 @@ window.__ModuleLoader__.load({
       const cardTotal = memory && memory.layers
         ? Object.keys(memory.layers).reduce((sum, key) => sum + memory.layers[key].length, 0)
         : 0
+      const permLevels = (state && state.permission && Array.isArray(state.permission.levels) && state.permission.levels.length)
+        ? state.permission.levels
+        : [
+            { key: 'jail', name: '禁足', summary: '只能在自己家读写，不能删；不能上网、不能碰电脑。' },
+            { key: 'normal', name: '普通', summary: '能看整台电脑（管理员区域除外）；自己家随便删改；OpenAI 目录可建项目。' },
+            { key: 'full', name: '完整', summary: '全部放开，包括系统目录。' },
+          ]
+      const permNow = state && state.permission && state.permission.levelInfo ? state.permission.levelInfo : null
       const pill = error
         ? h('span', { className: 'ycp-pill bad' }, h('span', { className: 'ycp-dot' }), '未连接')
         : loading
@@ -1774,6 +1819,31 @@ window.__ModuleLoader__.load({
                 }),
                 '每天自己回看记忆',
               ),
+            ),
+          ),
+
+          h('div', { className: 'ycp-section' },
+            h('div', { className: 'ycp-section-head' },
+              h('div', { className: 'ycp-section-title' }, '权限'),
+              h('div', { className: 'ycp-count' }, `当前：${permNow ? permNow.name : '禁足'}`),
+            ),
+            h('div', { className: 'ycp-note' }, '只有你能改；她自己的工具没有改权限的入口。'),
+            h('div', { className: 'ycp-perms' },
+              permLevels.map((level) => h('button', {
+                key: level.key,
+                className: permLevel === level.key ? 'ycp-perm on' : 'ycp-perm',
+                disabled: permBusy,
+                onClick: () => setPermLevel(level.key),
+              },
+                h('div', { className: 'ycp-perm-name' }, `${level.name}${state && state.permission && state.permission.level === level.key ? ' · 现在' : ''}`),
+                h('div', { className: 'ycp-perm-desc' }, level.summary),
+                level.key === 'full' ? h('div', { className: 'ycp-perm-warn' }, '⚠ 会放开系统目录') : null,
+              )),
+            ),
+            h('div', { className: 'ycp-actions', style: { marginTop: '0' } },
+              h('button', { className: 'ycp-btn', disabled: permBusy, onClick: savePermissionLevel },
+                permBusy ? '改…' : '保存权限'),
+              permMsg ? h('span', { className: 'ycp-note' }, permMsg) : null,
             ),
           ),
 

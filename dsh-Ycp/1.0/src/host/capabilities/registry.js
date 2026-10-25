@@ -5,6 +5,8 @@
  * 这里只挂她自己能用的小工具——记忆、日记、成长、名字、签名、作息、主动性。
  * 骨架保留，以后重做能力层时再往这里接。
  */
+import { checkTool } from '../organs/permission.js'
+
 const TOOL_ID = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/i
 const MAX_ID = 64
 
@@ -51,6 +53,7 @@ export function createRegistry({ getSettings, log } = {}) {
       description: String(spec.description).trim(),
       schema: spec.schema,
       run: spec.run,
+      capability: Boolean(spec.capability),
     })
     log?.('注册工具', { id })
     return { ok: true, id, dispose: () => tools.delete(id) }
@@ -71,6 +74,8 @@ export function createRegistry({ getSettings, log } = {}) {
   async function invoke(id, args = {}) {
     const tool = tools.get(String(id ?? ''))
     if (!tool) return { ok: false, reason: 'unknown-tool', error: `没有这个工具：${String(id)}` }
+    const gate = checkTool(tool)
+    if (!gate.ok) return { ok: false, reason: 'permission', error: gate.error }
     const checked = validateArgs(tool.schema, args)
     if (!checked.ok) return { ok: false, reason: 'bad-arguments', error: checked.error }
     try {

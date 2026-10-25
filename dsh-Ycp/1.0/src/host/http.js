@@ -22,6 +22,7 @@ import { loadMessages } from './organs/chatlog.js'
 import { recordEvent, todaySummary } from './organs/mood.js'
 import { listForPanel, markRead, runOnce } from './organs/proactive.js'
 import { healthCheck } from './organs/brain.js'
+import { permissionState, savePermission } from './organs/permission.js'
 import { search } from './organs/search.js'
 import { describeStatus, loadSchedule, saveSchedule } from './organs/schedule.js'
 import { createSayService } from './say.js'
@@ -90,6 +91,7 @@ export function createHttpApi({ version, ctx, pet, voice, balance, diary, ledger
       name: settings.name,
       ...summary,
       settings,
+      permission: permissionState(),
       model: sayService.currentModel(),
       rhythm: describeStatus(schedule),
       mood,
@@ -257,6 +259,25 @@ export function createHttpApi({ version, ctx, pet, voice, balance, diary, ledger
           const limit = Number(url.searchParams.get('limit')) || 30
           const before = Number(url.searchParams.get('before')) || 0
           sendJson(res, 200, { ok: true, ...loadMessages({ limit, before }) })
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-Ycp/permission',
+        handler: handlerFor(async (req, res) => {
+          if (req.method === 'GET') return sendJson(res, 200, { ok: true, ...permissionState() })
+          if (!writeGate(req, res)) return
+          // 只有面板的用户操作能改权限：她自己的工具没有这个入口。
+          if (String(req.headers['x-ycp-user'] || '') !== 'panel') {
+            return sendJson(res, 403, { ok: false, error: '权限只能由主人在面板里改' })
+          }
+          const body = await readBody(req)
+          const level = String(body?.level || '').trim()
+          if (level === 'full' && String(body?.confirm || '') !== 'FULL') {
+            return sendJson(res, 400, { ok: false, error: '开完整权限要二次确认' })
+          }
+          const saved = savePermission(level, { by: 'panel' })
+          sendJson(res, saved.ok ? 200 : 400, saved.ok ? { ok: true, ...permissionState() } : saved)
         }),
       },
       {
