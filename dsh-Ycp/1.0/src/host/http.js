@@ -18,6 +18,7 @@ import { appendLog, homePaths, homeSummary, loadPersonaBase, loadSettings, saveP
 import { DEFAULT_SAMPLE } from './appearance/voice.js'
 import { soundDir, soundStatus } from './appearance/sound.js'
 import { appendDiary, deleteCard, isLayer, LAYERS, listAll, readCard, todayDiary, writeCard } from './organs/memory.js'
+import { loadMessages } from './organs/chatlog.js'
 import { recordActivity, recordEvent, todaySummary } from './organs/mood.js'
 import { listForPanel, markRead, runOnce } from './organs/proactive.js'
 import { healthCheck } from './organs/brain.js'
@@ -247,6 +248,16 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           }
           const result = await autoSelf.reflect({ force: true })
           sendJson(res, result.ok ? 200 : 400, result)
+        }),
+      },
+      {
+        kind: 'exact',
+        path: '/api/dsh-Ycp/history',
+        handler: handlerFor(async (req, res, url) => {
+          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
+          const limit = Number(url.searchParams.get('limit')) || 30
+          const before = Number(url.searchParams.get('before')) || 0
+          sendJson(res, 200, { ok: true, ...loadMessages({ limit, before }) })
         }),
       },
       {

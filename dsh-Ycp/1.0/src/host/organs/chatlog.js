@@ -46,6 +46,27 @@ export function loadHistory({ maxMessages = DEFAULT_MESSAGES, maxChars = DEFAULT
   return picked
 }
 
+/**
+ * 面板翻聊天记录用：按时间正序返回一段，带 hasMore。
+ * @param {{limit?: number, before?: number}} [options] before = 已知最旧一条的时间戳，取它之前的
+ */
+export function loadMessages({ limit = 30, before = 0 } = {}) {
+  const all = readAll().filter((item) => String(item?.text ?? '').trim())
+  const cut = Number(before) || 0
+  const pool = cut > 0 ? all.filter((item) => Number(item.at || 0) < cut) : all
+  const take = Math.max(1, Math.min(200, Number(limit) || 30))
+  const messages = pool.slice(-take).map((item) => ({
+    role: item.role === 'assistant' ? 'assistant' : 'user',
+    text: String(item.text),
+    at: Number(item.at || 0),
+  }))
+  return {
+    messages,
+    hasMore: pool.length > messages.length,
+    total: all.length,
+  }
+}
+
 /** 一次对话完成后追加两条；只留最近一段。 */
 export function appendTurn(user, assistant, now = Date.now()) {
   const text = String(user ?? '').trim()

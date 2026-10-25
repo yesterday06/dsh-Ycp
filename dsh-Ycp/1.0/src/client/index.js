@@ -51,6 +51,8 @@ window.__ModuleLoader__.load({
       .ycp-bubble { margin-top:10px; border:1px solid var(--dsw-alias-border-l1); border-radius:14px; background:var(--dsw-alias-bg-base); padding:12px 15px; font-size:13px; line-height:1.75; white-space:pre-wrap; box-shadow:0 6px 16px rgba(20,70,110,.05); }
       .ycp-bubble-name { font-weight:600; margin-right:4px; }
       .ycp-bubble-meta { color:var(--dsw-alias-label-secondary); font-size:11px; margin-top:6px; }
+.ycp-chatlog { max-height:420px; overflow-y:auto; margin-bottom:10px; padding-right:4px; }
+.ycp-bubble.me { background:rgba(47,158,110,.06); }
       .ycp-typing { display:flex; align-items:center; gap:5px; }
       .ycp-dot { width:6px; height:6px; border-radius:50%; background:#2f8fce; display:inline-block; animation:ycp-blink 1.2s infinite ease-in-out; }
       .ycp-dot:nth-child(3) { animation-delay:.2s; }
@@ -251,6 +253,15 @@ window.__ModuleLoader__.load({
       const [reply, setReply] = React.useState(null)
       const [sayError, setSayError] = React.useState('')
       const [saying, setSaying] = React.useState(false)
+      const [chatLog, setChatLog] = React.useState([])
+      const [chatHasMore, setChatHasMore] = React.useState(false)
+      const [chatBusy, setChatBusy] = React.useState(false)
+      const chatBoxRef = React.useRef(null)
+
+      React.useEffect(() => {
+        const el = chatBoxRef.current
+        if (el) el.scrollTop = el.scrollHeight
+      }, [chatLog.length, saying])
 
       const [memory, setMemory] = React.useState(null)
       const [memTab, setMemTab] = React.useState('global')
@@ -355,6 +366,13 @@ window.__ModuleLoader__.load({
           setMemory(data)
         } catch (cause) {
           setMemMsg(`记忆读不到：${String((cause && cause.message) || cause)}`)
+        }
+        try {
+          const data = await call('/history?limit=30')
+          setChatLog(Array.isArray(data.messages) ? data.messages : [])
+          setChatHasMore(Boolean(data.hasMore))
+        } catch (cause) {
+          setSayError(`聊天记录读不到：${String((cause && cause.message) || cause)}`)
         }
         try {
           const data = await call('/schedule')
@@ -484,6 +502,34 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const loadChat = async (before = 0) => {
+        setChatBusy(true)
+        try {
+          const data = await call(`/history?limit=30${before ? `&before=${before}` : ''}`)
+          const list = Array.isArray(data.messages) ? data.messages : []
+          if (before) {
+            setChatLog((prev) => {
+              const seen = new Set((prev || []).map((item) => `${item.at}|${item.role}|${item.text}`))
+              const older = list.filter((item) => !seen.has(`${item.at}|${item.role}|${item.text}`))
+              return [...older, ...(prev || [])]
+            })
+          } else {
+            setChatLog(list)
+          }
+          setChatHasMore(Boolean(data.hasMore))
+        } catch (cause) {
+          setSayError(`聊天记录读不到：${String((cause && cause.message) || cause)}`)
+        } finally {
+          setChatBusy(false)
+        }
+      }
+
+      const loadMoreChat = () => {
+        const first = Array.isArray(chatLog) && chatLog.length ? Number(chatLog[0].at || 0) : 0
+        if (first) loadChat(first)
+        else loadChat()
+      }
+
       const sendSay = async () => {
         const text = draft.trim()
         if (!text || saying) return
@@ -503,6 +549,7 @@ window.__ModuleLoader__.load({
           if (!result.voice) playSound('speak')
           setDraft('')
           setState((prev) => (prev ? { ...prev, model: result.model || prev.model, mood: result.mood || prev.mood } : prev))
+          loadChat()
         } catch (cause) {
           setSayError(String((cause && cause.message) || cause))
         } finally {
@@ -1394,8 +1441,34 @@ window.__ModuleLoader__.load({
 
           h('div', { className: 'ycp-section' },
             h('div', { className: 'ycp-section-head' },
-              h('div', { className: 'ycp-section-title' }, '试说一句'),
-              h('div', { className: 'ycp-count' }, '只用来验话风，不发送到任何地方'),
+              h('div', { className: 'ycp-section-title' }, '和她说话'),
+              h('div', { className: 'ycp-count' }, `最近 ${chatLog.length} 条${chatHasMore ? ' · 还有更早的' : ''}`),
+              h('button', { className: 'ycp-btn small', disabled: chatBusy, onClick: () => loadChat() }, chatBusy ? '读…' : '刷新'),
+            ),
+            h('div', { className: 'ycp-chatlog', ref: chatBoxRef },
+              chatHasMore
+                ? h('button', { className: 'ycp-btn tiny', disabled: chatBusy, onClick: loadMoreChat, style: { marginBottom: '8px' } },
+                    chatBusy ? '读更早的…' : '读更早的')
+                : null,
+              chatLog.length === 0
+                ? h('div', { className: 'ycp-empty' }, '还没有聊天记录，说一句试试。')
+                : null,
+              chatLog.map((item, index) => h('div', {
+                key: `${item.at}-${index}`,
+                className: item.role === 'assistant' ? 'ycp-bubble' : 'ycp-bubble me',
+              },
+                h('div', null,
+                  h('span', { className: 'ycp-bubble-name' }, item.role === 'assistant' ? (state ? state.name : '大肥鱼') : '主人'),
+                  '：', item.text,
+                ),
+                item.at ? h('div', { className: 'ycp-bubble-meta' }, `${clock(item.at)} · ${timeAgo(item.at)}`) : null,
+              )),
+              saying
+                ? h('div', { className: 'ycp-bubble ycp-typing' },
+                    h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '大肥鱼'}：`),
+                    h('i', { className: 'ycp-dot' }), h('i', { className: 'ycp-dot' }), h('i', { className: 'ycp-dot' }),
+                  )
+                : null,
             ),
             h('div', { className: 'ycp-say' },
               h('input', {
@@ -1408,36 +1481,19 @@ window.__ModuleLoader__.load({
                 onKeyDown: (event) => { if (event.key === 'Enter') sendSay() },
               }),
               h('button', { className: 'ycp-btn primary', disabled: saying || !state, onClick: sendSay },
-                saying ? '她在想…' : '让她回'),
+                saying ? '她在想…' : '发给她'),
             ),
             sayError ? h('div', { className: 'ycp-msg bad' }, sayError) : null,
-            saying
-              ? h('div', { className: 'ycp-bubble ycp-typing' },
-                  h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '大肥鱼'}：`),
-                  h('i', { className: 'ycp-dot' }), h('i', { className: 'ycp-dot' }), h('i', { className: 'ycp-dot' }),
-                )
+            reply && reply.recalled && reply.recalled.length
+              ? h('div', { className: 'ycp-note' }, `刚才想起：${reply.recalled.map((item) => item.title).join('、')}`)
               : null,
-            reply
-              ? h('div', { className: 'ycp-bubble' },
-                  h('div', null,
-                    h('span', { className: 'ycp-bubble-name' }, `${state ? state.name : '大肥鱼'}：`),
-                    reply.text,
-                  ),
-                  h('div', { className: 'ycp-bubble-meta' },
-                    `${reply.model ? reply.model.provider + '/' + reply.model.model : ''} · ${reply.ms} ms · ${clock(reply.at)} · ${timeAgo(reply.at)}`),
-                  reply.recalled && reply.recalled.length
-                    ? h('div', { className: 'ycp-bubble-meta' },
-                        `想起：${reply.recalled.map((item) => item.title).join('、')}`)
-                    : null,
-                  reply.voiceUrl
-                    ? h('audio', {
-                        className: 'ycp-audio',
-                        controls: true,
-                        autoPlay: Boolean(voiceForm && voiceForm.autoSpeak),
-                        src: reply.voiceUrl,
-                      })
-                    : null,
-                )
+            reply && reply.voiceUrl
+              ? h('audio', {
+                  className: 'ycp-audio',
+                  controls: true,
+                  autoPlay: Boolean(voiceForm && voiceForm.autoSpeak),
+                  src: reply.voiceUrl,
+                })
               : null,
           ),
 
