@@ -131,9 +131,14 @@ export function apply(ctx) {
   registry.registerTool({
     id: 'memory.list',
     description: '列出自己的记忆卡（可按层过滤），整理记忆前先看一遍。',
-    schema: { type: 'object', properties: { layer: { type: 'string', enum: ['global', 'archive', 'realtime', 'diary'] } } },
+    schema: { type: 'object', properties: { layer: { type: 'string', enum: ['global', 'archive', 'realtime', 'diary', 'raw'] } } },
     run: async ({ layer }) => {
-      const cards = layer ? listCards(layer) : listAll()
+      const grouped = layer ? { [layer]: listCards(layer) } : listAll()
+      const cards = []
+      for (const [key, items] of Object.entries(grouped)) {
+        for (const item of items) cards.push({ layer: key, ...item })
+      }
+      cards.sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0))
       return { ok: true, count: cards.length, cards: cards.slice(0, 80) }
     },
   })

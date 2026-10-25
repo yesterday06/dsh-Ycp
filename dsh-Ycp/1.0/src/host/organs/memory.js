@@ -215,6 +215,68 @@ function dayStamp(value) {
  * 往某天的日记追加一段；文件不存在就先建。
  * 每天一个 YYYY-MM-DD.md，段落带 HH:mm。
  */
+const NUDGE_TURNS = 6
+const NUDGE_MS = 3 * 60 * 60 * 1000
+
+function nudgePath() {
+  return join(homePaths().root, '状态', '记忆整理.json')
+}
+
+function readNudge() {
+  try {
+    const data = JSON.parse(readFileSync(nudgePath(), 'utf8'))
+    return {
+      turns: Math.max(0, Number(data?.turns) || 0),
+      lastAt: Number(data?.lastAt) || 0,
+      lastDigestAt: Number(data?.lastDigestAt) || 0,
+    }
+  } catch {
+    return { turns: 0, lastAt: 0, lastDigestAt: 0 }
+  }
+}
+
+function saveNudge(state) {
+  try {
+    const path = nudgePath()
+    mkdirSync(join(homePaths().root, '状态'), { recursive: true })
+    writeAtomic(path, JSON.stringify(state))
+  } catch { /* 提醒记不上不影响说话 */ }
+}
+
+/** 每回完一句就加一轮，用来判断“多久没整理了”。 */
+export function bumpMemoryNudge(now = Date.now()) {
+  const state = readNudge()
+  state.turns += 1
+  state.lastAt = now
+  if (!state.lastDigestAt) state.lastDigestAt = now
+  saveNudge(state)
+}
+
+/** 她真的写了卡/日记/成长，就把提醒清掉。 */
+export function resetMemoryNudge(now = Date.now()) {
+  saveNudge({ turns: 0, lastAt: now, lastDigestAt: now })
+}
+
+/** 拼在 system 末尾的实时提醒；不该提醒时返回空串。 */
+export function memoryNudgeText(now = Date.now()) {
+  const state = readNudge()
+  const since = now - (state.lastDigestAt || state.lastAt || now)
+  const due = state.turns >= NUDGE_TURNS || since >= NUDGE_MS
+  if (!due) {
+    if (state.turns >= 3) return '【记忆提醒】聊了几轮了，顺手把值得留的记一下（memory.raw / memory.card）。'
+    return ''
+  }
+  const hours = Math.max(1, Math.round(since / 3600000))
+  return [
+    '【记忆提醒】该整理记忆了。',
+    `距上次整理：${state.turns} 轮 / 约 ${hours} 小时。`,
+    '回完这一句先做三件事，再继续聊：',
+    '1. 值得长期留的，用 memory.card 写/更新一张卡；',
+    '2. 今天发生的事，用 diary.write 写进日记；',
+    '3. 想通了什么，用 persona.grow 记一句。',
+    '整理完提醒会自动消失。',
+  ].join('\n')
+}
 export const RAW_SOURCES = ['chat', 'thought', 'post', 'game', 'video', 'web', 'other']
 
 /**

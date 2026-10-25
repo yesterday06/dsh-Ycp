@@ -102,6 +102,11 @@ export function installWebTools(registry, { ctx }) {
         throw new Error(`联网搜索失败（可能断网，或宿主没配搜索）：${String(error?.message ?? error).slice(0, 200)}`)
       }
       afterWebUse()
+      appendLog('联网搜索', {
+        query: text,
+        sources: Array.isArray(result?.sources) ? result.sources.length : 0,
+        content: String(result?.content ?? '').length,
+      })
       return {
         query: text,
         truncated: Boolean(result?.truncated),
@@ -139,13 +144,15 @@ export function installWebTools(registry, { ctx }) {
       const body = result?.body ?? {}
       const raw = String(body.content ?? '')
       const isHtml = body.kind === 'html'
-      const text = isHtml ? htmlToText(raw) : raw
+      const text = (isHtml ? htmlToText(raw) : raw).slice(0, WEB_TEXT_MAX)
+      appendLog('读网页', { url: target, status: Number(result?.statusCode) || 0, chars: text.length })
       return {
         url: result?.url ?? target,
         status: Number(result?.statusCode) || 0,
         truncated: Boolean(result?.truncated),
         title: isHtml ? titleOf(raw) : '',
-        text: text.slice(0, WEB_TEXT_MAX),
+        text,
+        ...(text.length < 200 ? { hint: '正文几乎为空：这页可能要 JS 渲染。改用 browser.goto 打开，再用 browser.text 或 browser.screenshot 读。' } : {}),
       }
     },
   })

@@ -14,7 +14,7 @@ import { appendLog, loadPersona, loadSettings } from './kernel/paths.js'
 import { commitSay, checkSay, loadRateState } from './organs/gate.js'
 import { loadSchedule } from './organs/schedule.js'
 import { recordSay, moodSummary } from './organs/mood.js'
-import { appendRaw } from './organs/memory.js'
+import { appendRaw, bumpMemoryNudge, memoryNudgeText, resetMemoryNudge } from './organs/memory.js'
 import { memoryBlock, search } from './organs/search.js'
 import { buildSystem } from './kernel/prompt.js'
 
@@ -99,9 +99,12 @@ export function createSayService(ctx, options = {}) {
       persona: loadPersona(),
       name: settings.name,
       memories: memoryBlock(recalled),
-      extra: gate.sleepy
-        ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
-        : '',
+      extra: [
+        gate.sleepy
+          ? '【这会儿】你困得厉害，是被人叫醒的。只回很短的一句，带着困意，别硬撑着聊天。'
+          : '',
+        memoryNudgeText(),
+      ].filter(Boolean).join('\n\n'),
     })
     const started = Date.now()
     const pieces = []
@@ -201,6 +204,8 @@ export function createSayService(ctx, options = {}) {
             let args = {}
             try { args = JSON.parse(call.arguments || '{}') } catch { args = {} }
             const result = toolRegistry ? await toolRegistry.invoke(toolIds.get(call.name) || call.name, args) : { ok: false, error: '没有可用的工具注册表' }
+            const realId = toolIds.get(call.name) || call.name
+            if (['memory.card', 'diary.write', 'persona.grow'].includes(realId)) resetMemoryNudge()
             const content = JSON.stringify(result).slice(0, 4000)
             messages.push({
               role: 'tool',
@@ -230,6 +235,7 @@ export function createSayService(ctx, options = {}) {
     const ms = Date.now() - started
     try {
       appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms } })
+      bumpMemoryNudge()
     } catch { /* 原始记忆记不上不影响说话 */ }
     const recalledList = [...recalled.hits, ...recalled.realtime].map((item) => ({
       layer: item.layer,
