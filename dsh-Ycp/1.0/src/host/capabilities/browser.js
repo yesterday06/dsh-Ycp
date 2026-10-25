@@ -227,7 +227,7 @@ export function createBrowserHand(options = {}) {
   }
 
   async function start(options = {}) {
-    const headless = options.headless !== false
+    const headless = options.headless === true
     if (session) {
       // 用户关掉可见窗口后子进程会退出，下一次动作要重新拉起
       if (session.child.exitCode === null) return session

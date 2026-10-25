@@ -245,7 +245,7 @@ export function createPlatforms({ browser, desktop, log = appendLog } = {}) {
    * 这不是绕过风控，是别把号当成机器人使——真被拦了要停手求助。
    */
   function pace() {
-    const minGap = Number(process.env.YCP_ACTION_MIN_MS) || 3000
+    const minGap = Number(process.env.YCP_ACTION_MIN_MS) || 1000
     const dailyCap = Number(process.env.YCP_ACTION_DAILY_CAP) || 300
     const now = Date.now()
     const day = new Date().toISOString().slice(0, 10)
