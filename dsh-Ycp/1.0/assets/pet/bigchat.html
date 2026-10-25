@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>跟阿闷说话</title>
+<style>
+  @font-face { font-family:'RuanTang'; src:url('../fonts/ruantang.ttf') format('truetype'); }
+  html,body { margin:0; padding:0; height:100%; background:transparent; overflow:hidden; user-select:none; font-family:'RuanTang','Microsoft YaHei',sans-serif; }
+  .card { margin:8px; height:calc(100% - 16px); display:flex; flex-direction:column; border:2px solid #8fd9f4; border-radius:18px; box-shadow:0 16px 36px rgba(20,70,110,.28); overflow:hidden;
+    background:linear-gradient(180deg,rgba(250,254,255,.97),rgba(226,247,255,.97)), url('../character/character.png') center bottom / 60% no-repeat; }
+  .bar { -webkit-app-region:drag; display:flex; align-items:center; justify-content:space-between; padding:8px 12px; color:#2a7fb6; font-size:13px; background:rgba(255,255,255,.55); }
+  .bar button { -webkit-app-region:no-drag; border:0; background:transparent; color:#7aa6bf; font-size:15px; cursor:pointer; }
+  .log { flex:1; min-height:0; overflow-y:auto; padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
+  .msg { max-width:82%; padding:8px 11px; border-radius:14px; font-size:13px; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+  .me { align-self:flex-end; background:#2a7fb6; color:#fff; border-bottom-right-radius:4px; }
+  .her { align-self:flex-start; background:rgba(255,255,255,.96); color:#22475f; border:1.5px solid #bfe6f7; border-bottom-left-radius:4px; }
+  .her .meme { display:block; max-width:180px; max-height:120px; object-fit:contain; margin:5px 0 2px; border-radius:9px; }
+  .status { padding:0 12px 3px; font-size:11px; color:#7aa6bf; min-height:13px; }
+  .row { display:flex; gap:7px; padding:0 10px 10px; }
+  input { flex:1; min-width:0; border:2px solid #bfe6f7; border-radius:11px; padding:7px 10px; font-family:inherit; font-size:13px; outline:none; background:#f8fdff; color:#1b3c53; }
+  button.send { border:0; border-radius:11px; padding:0 15px; background:linear-gradient(135deg,#66c8f2,#2a7fb6); color:#fff; font-size:13px; font-family:inherit; cursor:pointer; }
+  .log::-webkit-scrollbar { width:6px; } .log::-webkit-scrollbar-thumb { background:#bfe6f7; border-radius:3px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="bar"><span>💬 <span id="petName">阿闷</span></span><button id="close" title="关闭">✕</button></div>
+    <div class="log" id="log"></div>
+    <div class="status" id="status">回车发送，记录会保留</div>
+    <div class="row"><input id="text" placeholder="说点什么…" maxlength="1000" /><button class="send" id="send">发送</button></div>
+  </div>
+<script>
+  const api = window.ycpPet || { chatSend(){}, onChatReply(){}, history(){ return Promise.resolve([]) } }
+  if (api.config && api.config.name) document.getElementById('petName').textContent = api.config.name
+  const log = document.getElementById('log')
+  const input = document.getElementById('text')
+  const status = document.getElementById('status')
+  function scroll() { log.scrollTop = log.scrollHeight }
+  function add(kind, text, meme) {
+    const element = document.createElement('div')
+    element.className = 'msg ' + kind
+    const span = document.createElement('span')
+    span.textContent = text
+    element.appendChild(span)
+    if (meme) {
+      const image = document.createElement('img')
+      image.className = 'meme'
+      image.src = '../memes/' + encodeURIComponent(String(meme).split(/[\\/]/).pop())
+      element.appendChild(image)
+    }
+    log.appendChild(element); scroll()
+  }
+  function send() {
+    const text = input.value.trim()
+    if (!text) return
+    input.value = ''; add('me', text); status.textContent = '她正在想…'
+    api.chatSend(text)
+  }
+  document.getElementById('send').onclick = send
+  document.getElementById('close').onclick = () => window.close()
+  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') send() })
+  if (typeof api.onChatReply === 'function') api.onChatReply((reply) => {
+    status.textContent = reply && reply.ok ? '回声了' : (reply && reply.error ? reply.error : '没回成')
+    add('her', (reply && reply.text) || '……', reply && reply.meme)
+  })
+  if (typeof api.history === 'function') api.history().then((list) => {
+    for (const item of Array.isArray(list) ? list : []) add(item.role === 'assistant' ? 'her' : 'me', item.text)
+  }).catch(() => {})
+</script>
+</body>
+</html>

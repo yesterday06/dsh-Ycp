@@ -295,6 +295,7 @@ function sendReply(payload) {
   if (payload && payload.ok && Math.random() > memeChance) delete payload.meme
   sendToWin('ycp:reply', payload)
   if (chatWin && !chatWin.isDestroyed()) chatWin.webContents.send('ycp:chat-reply', payload)
+  if (bigChatWin && !bigChatWin.isDestroyed()) bigChatWin.webContents.send('ycp:chat-reply', payload)
 }
 
 function setPinned(value) {
@@ -519,7 +520,45 @@ ipcMain.on('ycp:action', (_event, payload) => {
   if (kind === 'close') { win.close(); return }
   if (kind === 'menu-open') { win.setIgnoreMouseEvents(false); return }
   if (kind === 'chat-close') { if (chatWin && !chatWin.isDestroyed()) chatWin.hide(); return }
+  if (kind === 'bigchat') { toggleBigChat(); return }
 })
+
+ipcMain.handle('ycp:history', () => {
+  try {
+    const home = process.env.YCP_HOME || ''
+    const file = path.join(home, '状态', '对话', '历史.json')
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+    return Array.isArray(data.messages) ? data.messages.slice(-60) : []
+  } catch {
+    return []
+  }
+})
+
+let bigChatWin = null
+function toggleBigChat() {
+  if (bigChatWin && !bigChatWin.isDestroyed()) {
+    if (bigChatWin.isVisible()) { bigChatWin.hide(); return }
+    bigChatWin.show(); bigChatWin.focus(); return
+  }
+  bigChatWin = new BrowserWindow({
+    width: 420,
+    height: 640,
+    minWidth: 340,
+    minHeight: 460,
+    frame: false,
+    resizable: true,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  bigChatWin.loadFile(path.join(__dirname, 'bigchat.html'))
+  bigChatWin.once('ready-to-show', () => bigChatWin.show())
+  bigChatWin.on('closed', () => { bigChatWin = null })
+}
 
 ipcMain.on('ycp:chat-send', (_event, text) => {
   if (!win || win.isDestroyed()) return

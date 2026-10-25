@@ -210,11 +210,15 @@ export function createLedger() {
     }
     recent.sort((a, b) => String(b.at).localeCompare(String(a.at)))
     const budget = data.budget
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
     const cachedBalance = readBalanceCache()
     const actualBalance = Number.isFinite(Number(cachedBalance?.total)) ? Number(cachedBalance.total) : null
     const remaining = actualBalance != null
       ? Math.round(actualBalance * 100) / 100
       : Math.round((budget - monthExpense) * 100) / 100
+    const monthlyBudgetCny = budget > 0 ? budget : (actualBalance ?? 0)
+    const dailyBudgetCny = Math.round((monthlyBudgetCny / daysInMonth) * 100) / 100
+    const toTokens = (cny) => Math.round((Number(cny) || 0) / TOKEN_PRICE_PER_M * 1e6)
     return {
       todayTokens: Math.round(todayTokens),
       monthTokens: Math.round(monthTokens),
@@ -238,6 +242,13 @@ export function createLedger() {
       monthIncome: Math.round(monthIncome * 100) / 100,
       budget,
       remaining,
+      monthlyBudgetCny,
+      dailyBudgetCny,
+      todayBudgetCny: dailyBudgetCny,
+      todayBudgetTokens: toTokens(dailyBudgetCny),
+      monthlyBudgetTokens: toTokens(monthlyBudgetCny),
+      remainingTokens: actualBalance != null ? toTokens(actualBalance) : null,
+      todayOver: Math.round((todayExpense - dailyBudgetCny) * 100) / 100,
       balance: actualBalance,
       balanceAt: cachedBalance?.at ?? null,
       balanceStale: cachedBalance ? Date.now() - Number(cachedBalance.at || 0) > 5 * 60 * 1000 : true,

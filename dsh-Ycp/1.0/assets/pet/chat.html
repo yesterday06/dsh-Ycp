@@ -108,6 +108,12 @@
       }
     }, 22)
   })
+  if (typeof api.history === 'function') api.history().then((list) => {
+    for (const item of Array.isArray(list) ? list : []) {
+      const text = String(item.text || '').trim()
+      if (text) add(item.role === 'assistant' ? 'her' : 'me', text)
+    }
+  }).catch(() => {})
   window.addEventListener('focus', () => input.focus())
 </script>
 </body>
