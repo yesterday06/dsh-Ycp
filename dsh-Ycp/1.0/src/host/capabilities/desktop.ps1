@@ -264,6 +264,26 @@ switch ($action) {
     $result.name = $needle
     $result.method = $method
   }
+  'uiaSet' {
+    $h = Get-TargetHandle $p.window
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($h)
+    $all = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $needle = [string]$p.name
+    $hit = $null
+    for ($i = 0; $i -lt $all.Count; $i++) {
+      $e = $all.Item($i)
+      if (([string]$e.Current.Name).Contains($needle)) { $hit = $e; break }
+    }
+    if (-not $hit) { Fail ("没找到输入框：" + $needle) }
+    try {
+      $valuePattern = $hit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+      $valuePattern.SetValue([string]$p.value)
+      $result.name = $needle
+      $result.value = [string]$p.value
+    } catch {
+      Fail ("这个元素不能直接写值：" + $needle)
+    }
+  }
   default { Fail ("unknown action: " + $action) }
 }
 

@@ -138,6 +138,13 @@ export function createDesktopHand(options = {}) {
     return result
   }
 
+  async function uiaSet(name, value, window) {
+    const key = String(name ?? '').trim()
+    if (!key) throw new Error('要写哪个输入框？')
+    const result = await run('uiaSet', { name: key, value: String(value ?? ''), ...(window ? { window: String(window) } : {}) })
+    remember('uiaSet', key)
+    return result
+  }
   async function uiaClick(name, window) {
     const value = String(name ?? '').trim()
     if (!value) throw new Error('要点击哪个元素？')
@@ -225,7 +232,7 @@ export function createDesktopHand(options = {}) {
     return result
   }
 
-  return { status, info, uia, uiaClick, screenshot, move, click, drag, type, key, focus, clipboard, launch }
+  return { status, info, uia, uiaClick, uiaSet, screenshot, move, click, drag, type, key, focus, clipboard, launch }
 }
 
 /** 把桌面动作挂进注册表（每条都要 desktop 这条手开着）。 */
@@ -258,6 +265,21 @@ export function installDesktopTools(registry, hand) {
         required: ['name'],
       },
       run: async ({ name, window }) => hand.uiaClick(name, window),
+    },
+    {
+      id: 'desktop.setValue',
+      description: '往窗口里的输入框直接写内容（后台，不抢前台）；先 desktop.ui 找输入框名字',
+      hand: 'desktop',
+      schema: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: '输入框名字的一部分' },
+          value: { type: 'string' },
+          window: { type: 'string', description: '窗口标题的一部分，省略=当前前台' },
+        },
+        required: ['name', 'value'],
+      },
+      run: async ({ name, value, window }) => hand.uiaSet(name, value, window),
     },
     {
       id: 'desktop.screenshot',
