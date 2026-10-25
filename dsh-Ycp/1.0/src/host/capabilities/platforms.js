@@ -467,6 +467,24 @@ export function installPlatformTools(registry, platforms) {
       run: async () => platforms.biliMe(),
     },
     {
+      id: 'bili.dynamic',
+      description: '发一条 B站动态（纯文字）；用登录态，失败会返回接口原因',
+      hand: 'actions',
+      schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+      run: async ({ text }) => {
+        const raw = String(text ?? '').trim()
+        if (!raw) throw new Error('动态内容不能为空')
+        if (raw.length > 2000) throw new Error('一条动态最多 2000 字')
+        const result = await platforms.biliApi({
+          path: '/x/dynamic/feed/create/word',
+          method: 'POST',
+          body: { content: JSON.stringify({ raw_text: raw }), scene: 1 },
+        })
+        if (result.code !== 0) throw new Error(`B站没发成：${result.message || result.code || '未知原因'}`)
+        return { ok: true, dynamicId: result.data?.dynamic_id ?? null }
+      },
+    },
+    {
       id: 'bili.api',
       description: '用登录态直接调 B站网页接口（相对路径，自动带 cookie 和 csrf）；改资料、发动态、回评论都靠它',
       hand: 'actions',

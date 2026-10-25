@@ -116,7 +116,7 @@ export function createSayService(ctx, options = {}) {
       if (desktop && typeof desktop.info === 'function') {
         const info = await desktop.info()
         const foreground = String(info?.foreground ?? '').trim()
-        if (foreground) scene = '【眼前】主人现在的前台窗口：' + foreground.slice(0, 80)
+        if (foreground) scene = '【眼前】系统刚读到的前台窗口标题是「' + foreground.slice(0, 80) + '」。这是真实窗口信息，不是猜的；被问“你能看到什么”时据此回答。'
       }
     } catch { /* 桌面手不可用就不带 */ }
 
@@ -182,7 +182,7 @@ export function createSayService(ctx, options = {}) {
           'memory.card', 'memory.raw', 'memory.list', 'memory.forget', 'memory.consolidate',
           'diary.write', 'persona.grow', 'name.set', 'signature.set', 'schedule.set', 'proactive.set',
           'qq.send', 'browser.login', 'browser.goto', 'browser.text', 'browser.click',
-          'bili.comment', 'bili.like', 'site.api',
+          'bili.comment', 'bili.like', 'bili.dynamic', 'site.api',
         ]
         const catalog = toolRegistry && typeof toolRegistry.listTools === 'function'
           ? toolRegistry.listTools().filter((tool) => tool && tool.id && CATALOG_IDS.includes(tool.id))
