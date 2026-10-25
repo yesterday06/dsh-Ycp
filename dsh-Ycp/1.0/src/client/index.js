@@ -279,25 +279,6 @@ window.__ModuleLoader__.load({
       const [proactiveMsg, setProactiveMsg] = React.useState('')
       const [proactiveBusy, setProactiveBusy] = React.useState(false)
 
-      const [toolsData, setToolsData] = React.useState(null)
-      const [toolText, setToolText] = React.useState('你好')
-      const [toolMsg, setToolMsg] = React.useState('')
-      const [toolBusy, setToolBusy] = React.useState(false)
-      const [permBusy, setPermBusy] = React.useState(false)
-
-      const [browserInfo, setBrowserInfo] = React.useState(null)
-      const [sitesText, setSitesText] = React.useState('')
-      const [browserMsg, setBrowserMsg] = React.useState('')
-      const [browserBusy, setBrowserBusy] = React.useState(false)
-
-      const [desktopInfo, setDesktopInfo] = React.useState(null)
-      const [appsText, setAppsText] = React.useState('')
-      const [desktopMsg, setDesktopMsg] = React.useState('')
-      const [desktopBusy, setDesktopBusy] = React.useState(false)
-
-      const [autonomy, setAutonomy] = React.useState(null)
-      const [autonomyBusy, setAutonomyBusy] = React.useState(false)
-
       const [petInfo, setPetInfo] = React.useState(null)
       const [petBusy, setPetBusy] = React.useState(false)
       const [petMsg, setPetMsg] = React.useState('')
@@ -390,30 +371,6 @@ window.__ModuleLoader__.load({
           setProactiveMsg(`主动状态读不到：${String((cause && cause.message) || cause)}`)
         }
         try {
-          const data = await call('/tools')
-          setToolsData(data)
-        } catch (cause) {
-          setToolMsg(`工具读不到：${String((cause && cause.message) || cause)}`)
-        }
-        try {
-          const data = await call('/browser')
-          setBrowserInfo(data)
-          setSitesText(Array.isArray(data.sites) ? data.sites.join(', ') : '')
-        } catch (cause) {
-          setBrowserMsg(`浏览器状态读不到：${String((cause && cause.message) || cause)}`)
-        }
-        try {
-          const data = await call('/desktop')
-          setDesktopInfo(data)
-          setAppsText(Array.isArray(data.apps) ? data.apps.join(', ') : '')
-        } catch (cause) {
-          setDesktopMsg(`桌面状态读不到：${String((cause && cause.message) || cause)}`)
-        }
-        try {
-          const data = await call('/autonomy')
-          setAutonomy(data)
-        } catch { /* 自主状态读不到不影响面板 */ }
-        try {
           const data = await call('/pet')
           setPetInfo(data)
         } catch (cause) {
@@ -449,10 +406,6 @@ window.__ModuleLoader__.load({
             setProactive(data)
             if (data.unread > 0) await call('/proactive/read', { method: 'POST', body: '{}' })
           } catch { /* 面板没开时静默 */ }
-          try {
-            const data = await call('/autonomy')
-            setAutonomy(data)
-          } catch { /* 同上 */ }
         }, 10000)
         return () => clearInterval(timer)
       }, [])
@@ -748,154 +701,6 @@ window.__ModuleLoader__.load({
         } finally {
           setProactiveBusy(false)
         }
-      }
-
-      const invokeDemo = async (id, args) => {
-        setToolBusy(true)
-        setToolMsg('')
-        try {
-          const result = await call('/tools/invoke', { method: 'POST', body: JSON.stringify({ id, args }) })
-          if (result.ok) {
-            const value = result.result
-            setToolMsg(`返回：${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
-          } else {
-            setToolMsg(`失败（${result.reason}）：${result.error}`)
-          }
-        } catch (cause) {
-          setToolMsg(`调用失败：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setToolBusy(false)
-        }
-      }
-
-      const togglePermission = async (key) => {
-        setPermBusy(true)
-        setToolMsg('')
-        try {
-          const current = (state && state.settings && state.settings.permissions) || {}
-          const result = await call('/settings', {
-            method: 'PUT',
-            body: JSON.stringify({ permissions: { ...current, [key]: !current[key] } }),
-          })
-          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
-          try {
-            const data = await call('/tools')
-            setToolsData(data)
-          } catch { /* 列表刷不出来不影响开关 */ }
-          setToolMsg(`「${key}」已${result.settings.permissions[key] ? '打开' : '关掉'}`)
-        } catch (cause) {
-          setToolMsg(`改不了：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setPermBusy(false)
-        }
-      }
-
-      const reloadBrowser = async () => {
-        try {
-          const data = await call('/browser')
-          setBrowserInfo(data)
-          setSitesText(Array.isArray(data.sites) ? data.sites.join(', ') : '')
-        } catch { /* 保持旧值 */ }
-      }
-
-      const toggleHand = async (id) => {        setBrowserBusy(true)
-        setBrowserMsg('')
-        try {
-          const hands = (state && state.settings && state.settings.hands) || {}
-          const result = await call('/settings', {
-            method: 'PUT',
-            body: JSON.stringify({ hands: { [id]: !hands[id] } }),
-          })
-          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
-          await reloadBrowser()
-          setBrowserMsg(`「${id}」这条手已${result.settings.hands[id] ? '打开' : '关掉'}`)
-        } catch (cause) {
-          setBrowserMsg(`改不了：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setBrowserBusy(false)
-        }
-      }
-
-      const loginBrowser = async () => {
-        setBrowserBusy(true)
-        setBrowserMsg('')
-        try {
-          const result = await call('/tools/invoke', {
-            method: 'POST',
-            body: JSON.stringify({ id: 'browser.login', args: { url: 'https://www.bilibili.com' } }),
-          })
-          if (!result.ok) throw new Error(result.error || '打不开')
-          setBrowserMsg('登录窗口已打开：登录完直接关掉窗口，登录态会留在她的浏览器里')
-          await reloadBrowser()
-        } catch (cause) {
-          setBrowserMsg(`打不开：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setBrowserBusy(false)
-        }
-      }
-
-      const saveSites = async () => {
-        setBrowserBusy(true)
-        setBrowserMsg('')
-        try {
-          const sites = sitesText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean)
-          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ hands: { browserSites: sites } }) })
-          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
-          await reloadBrowser()
-          setBrowserMsg(`白名单已存：${sites.length ? sites.join('、') : '（空，谁都打不开）'}`)
-        } catch (cause) {
-          setBrowserMsg(`存不了：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setBrowserBusy(false)
-        }
-      }
-
-      const stopBrowser = async () => {
-        setBrowserBusy(true)
-        setBrowserMsg('')
-        try {
-          const result = await call('/browser/stop', { method: 'POST', body: '{}' })
-          setBrowserInfo(result.status)
-          setBrowserMsg(result.closed ? '浏览器已关' : '浏览器本来就没开')
-        } catch (cause) {
-          setBrowserMsg(`关不掉：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setBrowserBusy(false)
-        }
-      }
-
-      const reloadDesktop = async () => {
-        try {
-          const data = await call('/desktop')
-          setDesktopInfo(data)
-          setAppsText(Array.isArray(data.apps) ? data.apps.join(', ') : '')
-        } catch { /* 保持旧值 */ }
-      }
-
-      const saveApps = async () => {
-        setDesktopBusy(true)
-        setDesktopMsg('')
-        try {
-          const apps = appsText.split(/[,，\s]+/).map((item) => item.trim()).filter(Boolean)
-          const result = await call('/settings', { method: 'PUT', body: JSON.stringify({ hands: { desktopApps: apps } }) })
-          setState((prev) => (prev ? { ...prev, settings: result.settings } : prev))
-          await reloadDesktop()
-          setDesktopMsg(`程序白名单已存：${apps.length ? apps.join('、') : '（空，谁都不许启动）'}`)
-        } catch (cause) {
-          setDesktopMsg(`存不了：${String((cause && cause.message) || cause)}`)
-        } finally {
-          setDesktopBusy(false)
-        }
-      }
-
-      const resolveStuck = async () => {
-        setAutonomyBusy(true)
-        try {
-          await call('/autonomy/resolve', { method: 'POST', body: '{}' })
-          const data = await call('/autonomy')
-          setAutonomy(data)
-        } catch { /* 清不掉就等下次轮询 */ }
-        finally { setAutonomyBusy(false) }
       }
 
       const startPet = async () => {
@@ -1223,18 +1028,6 @@ window.__ModuleLoader__.load({
             h('span', null, '人设 ', h('b', null, `${state ? state.persona.chars : 0} 字`)),
             h('span', null, '上次说话 ', h('b', null, reply ? clock(reply.at) : '还没说过')),
           ),
-
-          autonomy && autonomy.pending
-            ? h('div', { className: 'ycp-banner' },
-                h('div', null,
-                  h('b', null, '我卡住了：'),
-                  autonomy.pending.goal,
-                  ' —— ',
-                  autonomy.pending.reason,
-                ),
-                h('button', { className: 'ycp-btn small', disabled: autonomyBusy, onClick: resolveStuck }, '知道了'),
-              )
-            : null,
 
           error ? h('div', { className: 'ycp-msg bad' }, `出错了：${error}`) : null,
 
@@ -1713,125 +1506,6 @@ window.__ModuleLoader__.load({
                 proactiveBusy ? '她在想…' : '现在试一次'),
             ),
             proactiveMsg ? h('div', { className: 'ycp-msg ok' }, proactiveMsg) : null,
-          ),
-
-          h('div', { className: 'ycp-section' },
-            h('div', { className: 'ycp-section-head' },
-              h('div', { className: 'ycp-section-title' }, '手'),
-              h('div', { className: 'ycp-count' }, toolsData ? `工具 ${toolsData.tools.length} · 手 ${toolsData.hands.length}` : ''),
-            ),
-            toolsData
-              ? h('div', null,
-                  toolsData.tools.map((tool) => h('div', { key: tool.id, className: 'ycp-memrow' },
-                    h('div', { className: 'ycp-mem-main' },
-                      h('div', { className: 'ycp-mem-title' }, tool.id),
-                      h('div', { className: 'ycp-mem-desc' }, tool.description),
-                      h('div', { className: 'ycp-mem-meta' }, tool.hand ? `用「${tool.hand}」这条手` : '不需要手'),
-                    ),
-                    h('div', { className: 'ycp-mem-actions' },
-                      tool.id === 'demo.echo' || tool.id === 'demo.time'
-                        ? h('button', {
-                            className: 'ycp-btn small',
-                            disabled: toolBusy,
-                            onClick: () => invokeDemo(tool.id, tool.id === 'demo.echo' ? { text: toolText } : {}),
-                          }, '试一下')
-                        : null,
-                    ),
-                  )),
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '手'),
-                    toolsData.hands.map((hand) => h('button', {
-                      key: hand.id,
-                      className: hand.enabled ? 'ycp-tab on' : 'ycp-tab',
-                      disabled: browserBusy,
-                      title: hand.description,
-                      onClick: () => toggleHand(hand.id),
-                    }, `${hand.name} ${hand.enabled ? '开' : '关'}`)),
-                  ),
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '权限'),
-                    [['webSearch', '联网搜索'], ['webFetch', '网页读取'], ['memoryWrite', '记忆写入'], ['memoryRead', '记忆检索']]
-                      .map(([key, label]) => {
-                        const on = state && state.settings && state.settings.permissions
-                          ? state.settings.permissions[key] !== false
-                          : true
-                        return h('button', {
-                          key,
-                          className: on ? 'ycp-tab on' : 'ycp-tab',
-                          disabled: permBusy,
-                          onClick: () => togglePermission(key),
-                        }, `${label} ${on ? '开' : '关'}`)
-                      }),
-                  ),
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '浏览器'),
-                    h('span', { className: 'ycp-count' },
-                      browserInfo
-                        ? (browserInfo.available
-                          ? `${browserInfo.browser.name}${browserInfo.running ? ' · 运行中' : ' · 待命'}`
-                          : `不可用：${browserInfo.error}`)
-                        : '读取中…'),
-                    browserInfo && browserInfo.running
-                      ? h('button', { className: 'ycp-btn small', disabled: browserBusy, onClick: stopBrowser }, '关掉浏览器')
-                      : null,
-                    h('button', { className: 'ycp-btn small', disabled: browserBusy, onClick: loginBrowser }, '打开登录窗口'),
-                  ),
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '白名单'),
-                    h('input', {
-                      className: 'ycp-input',
-                      value: sitesText,
-                      disabled: browserBusy,
-                      placeholder: '* 表示不限制；或填 example.com, bilibili.com',
-                      onChange: (event) => setSitesText(event.target.value),
-                    }),
-                    h('button', { className: 'ycp-btn small', disabled: browserBusy, onClick: saveSites }, '保存'),
-                  ),
-                  h('div', { className: 'ycp-hint' },
-                    browserInfo && browserInfo.unrestricted
-                      ? '现在不限制：任何 http/https 网站都能开。'
-                      : '填 * 表示不限制浏览；留空则谁都打不开。'),
-                  browserInfo && browserInfo.recent && browserInfo.recent.length
-                    ? h('div', { className: 'ycp-mem-meta' },
-                        `最近：${browserInfo.recent.slice(0, 3).map((item) => `${item.action} ${item.detail}`).join(' · ')}`)
-                    : null,
-                  browserMsg ? h('div', { className: 'ycp-msg ok' }, browserMsg) : null,
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '桌面'),
-                    h('span', { className: 'ycp-count' },
-                      desktopInfo
-                        ? (desktopInfo.available
-                          ? `Windows 桌面 · 这条手${desktopInfo.enabled ? '开着' : '关着'}`
-                          : `不可用：${desktopInfo.error}`)
-                        : '读取中…'),
-                  ),
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '程序'),
-                    h('input', {
-                      className: 'ycp-input',
-                      value: appsText,
-                      disabled: desktopBusy,
-                      placeholder: '允许启动的程序，如 notepad.exe（逗号分隔）',
-                      onChange: (event) => setAppsText(event.target.value),
-                    }),
-                    h('button', { className: 'ycp-btn small', disabled: desktopBusy, onClick: saveApps }, '保存'),
-                  ),
-                  h('div', { className: 'ycp-hint' },
-                    '桌面手默认关；关着时点击、打字、启动程序都会被拒。'),
-                  desktopMsg ? h('div', { className: 'ycp-msg ok' }, desktopMsg) : null,
-                  h('div', { className: 'ycp-subrow' },
-                    h('span', { className: 'label' }, '试跑'),
-                    h('input', {
-                      className: 'ycp-input',
-                      value: toolText,
-                      disabled: toolBusy,
-                      placeholder: '给 demo.echo 一句话',
-                      onChange: (event) => setToolText(event.target.value),
-                    }),
-                  ),
-                  toolMsg ? h('div', { className: 'ycp-msg ok' }, toolMsg) : null,
-                )
-              : h('div', { className: 'ycp-empty' }, '读取中…'),
           ),
 
           h('div', { className: 'ycp-section' },

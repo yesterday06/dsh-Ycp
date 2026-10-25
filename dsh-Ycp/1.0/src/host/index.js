@@ -17,14 +17,8 @@ import { createVoice } from './appearance/voice.js'
 import { createPetBridge } from './appearance/pet-bridge.js'
 import { createSayService } from './say.js'
 import { loadSchedule, saveSchedule } from './organs/schedule.js'
-import { installBuiltins } from './capabilities/builtin.js'
-import { createBrowserHand, installBrowserTools } from './capabilities/browser.js'
-import { createDesktopHand, installDesktopTools } from './capabilities/desktop.js'
 import { createRegistry } from './capabilities/registry.js'
-import { createScriptHand, installScriptTools } from './capabilities/script.js'
-import { installWebTools } from './capabilities/web.js'
-import { createPlatforms, installPlatformTools } from './capabilities/platforms.js'
-import { createAutonomy, installAutonomyTool } from './organs/autonomy.js'
+import { search } from './organs/search.js'
 import { createDiaryWriter } from './organs/diary.js'
 import { createLedger } from './organs/ledger.js'
 import { createHttpApi, mountHttp } from './http.js'
@@ -91,7 +85,7 @@ export function apply(ctx) {
     } catch { /* 记不上不影响动作 */ }
     return result
   }
-  installBuiltins(registry)
+  // 工具注册表：只挂她自己的小工具（记忆 / 日记 / 成长 / 名字 / 签名 / 作息 / 主动性）。
   registry.registerTool({
     id: 'memory.raw',
     description: '记一条原始记忆（不加工）：聊天、心里想的、看到的帖子、打的游戏、发的视频、看到的网页都行。只用于以后回查，不进提示词。',
@@ -298,36 +292,52 @@ export function apply(ctx) {
       return result.ok ? { ok: true, signature: result.settings.signature } : result
     },
   })
-  installWebTools(registry, { ctx })
-
-  // 浏览器之手：本机没装 Playwright，用系统 Edge/Chrome + CDP；懒启动，闲置自动关。
-  const browser = createBrowserHand({
-    getSettings: () => loadSettings(),
-    log: (message, extra) => appendLog(message, extra),
+  // 记忆的「记」和「想」：不是手，是脑子的一部分。
+  registry.registerTool({
+    id: 'memory.remember',
+    description: '把刚知道的一件事记住（同类会自动并进旧卡）。',
+    schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: '这件事叫什么' },
+        text: { type: 'string', description: '要记住的内容' },
+        tags: { type: 'array', description: '可选标签数组' },
+      },
+      required: ['title', 'text'],
+    },
+    run: async ({ title, text, tags }) => {
+      const name = String(title ?? '').trim()
+      const body = String(text ?? '').trim()
+      if (!name || !body) throw new Error('标题和内容都不能为空')
+      const result = upsertCard('global', {
+        title: name,
+        body,
+        tags: Array.isArray(tags) ? tags : [],
+        source: '她记住的',
+      })
+      if (!result.ok) throw new Error(result.error)
+      return { file: result.file, merged: Boolean(result.merged) }
+    },
   })
-  installBrowserTools(registry, browser)
 
-  // 桌面之手：PowerShell + user32，默认关；开之前谁也别想动鼠标键盘。
-  const desktop = createDesktopHand({
-    getSettings: () => loadSettings(),
-    log: (message, extra) => appendLog(message, extra),
+  registry.registerTool({
+    id: 'memory.recall',
+    description: '从记忆里找相关的事，返回命中的卡片与摘要。',
+    schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: '想找什么' },
+        topK: { type: 'integer', description: '最多几张，默认 3' },
+      },
+      required: ['query'],
+    },
+    run: async ({ query, topK }) => {
+      const text = String(query ?? '').trim()
+      if (!text) throw new Error('要找什么？')
+      const count = Math.max(1, Math.min(5, Number(topK) || 3))
+      return search(text, { topK: count, maxChars: 600 })
+    },
   })
-  installDesktopTools(registry, desktop)
-
-  // 平台：B站 / 小黑盒 / 抖音走浏览器手，QQ 走桌面手。
-  const platforms = createPlatforms({ browser, desktop })
-  installPlatformTools(registry, platforms)
-
-  // 脚本之手：读写自己家、写小工具、跑小工具；runCommand 默认关。
-  const script = createScriptHand({
-    getSettings: () => loadSettings(),
-    log: (message, extra) => appendLog(message, extra),
-  })
-  installScriptTools(registry, script)
-
-  // 自主解决：看 → 想 → 试 → 记 → 换，最多 3 次；不行就写一条求助。
-  const autonomy = createAutonomy({ ctx, registry, getSettings: () => loadSettings() })
-  installAutonomyTool(registry, autonomy)
 
   // 外观：桌宠是一个独立 Electron 进程（宿主没有主进程权限）；点她会响一声。
   const pet = createPet({
@@ -345,7 +355,7 @@ export function apply(ctx) {
   // 桌宠对话/记账：纯文件桥，不依赖面板登录态。
   const autoSelf = createAutoSelf({ ctx })
   autoSelfRef = autoSelf
-  const sayService = createSayService(ctx, { tools: registry, autoSelf, desktop })
+  const sayService = createSayService(ctx, { tools: registry, autoSelf })
   const bridge = createPetBridge({ say: sayService, voice, ledger })
   bridge.start()
 
@@ -355,7 +365,7 @@ export function apply(ctx) {
   // 日记：她自己写，只写进她自己的家。
   const diary = createDiaryWriter({ ctx })
 
-  const http = createHttpApi({ version, ctx, sayService, ledger, registry, browser, desktop, autonomy, pet, voice, balance, diary, autoSelf })
+  const http = createHttpApi({ version, ctx, sayService, ledger, registry, pet, voice, balance, diary, autoSelf })
 
   // 外观：主人勾了"放她出来"，宿主加载时就把桌宠窗口拉起来。
   if (loadSettings().appearance?.petEnabled) {

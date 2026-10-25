@@ -19,7 +19,7 @@ import { DEFAULT_SAMPLE } from './appearance/voice.js'
 import { soundDir, soundStatus } from './appearance/sound.js'
 import { appendDiary, deleteCard, isLayer, LAYERS, listAll, readCard, todayDiary, writeCard } from './organs/memory.js'
 import { loadMessages } from './organs/chatlog.js'
-import { recordActivity, recordEvent, todaySummary } from './organs/mood.js'
+import { recordEvent, todaySummary } from './organs/mood.js'
 import { listForPanel, markRead, runOnce } from './organs/proactive.js'
 import { healthCheck } from './organs/brain.js'
 import { search } from './organs/search.js'
@@ -73,9 +73,8 @@ function readBody(req) {
   })
 }
 
-export function createHttpApi({ version, ctx, registry, browser, desktop, autonomy, pet, voice, balance, diary, ledger, autoSelf, sayService: injectedSay }) {
+export function createHttpApi({ version, ctx, pet, voice, balance, diary, ledger, autoSelf, sayService: injectedSay }) {
   const sayService = injectedSay || createSayService(ctx)
-  const tools = registry ?? null
 
   /** 面板要的整份状态。 */
   function panelState() {
@@ -322,100 +321,6 @@ export function createHttpApi({ version, ctx, registry, browser, desktop, autono
           if (!writeGate(req, res)) return
           const body = await readBody(req)
           sendJson(res, 200, { ok: true, ...markRead(body?.ids) })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/tools',
-        handler: handlerFor(async (req, res) => {
-          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
-          if (!tools) return sendJson(res, 200, { ok: true, tools: [], hands: [], appearances: [] })
-          sendJson(res, 200, {
-            ok: true,
-            tools: tools.listTools(),
-            hands: tools.listHands(),
-            appearances: tools.listAppearances(),
-          })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/tools/invoke',
-        handler: handlerFor(async (req, res) => {
-          if (!writeGate(req, res)) return
-          if (!tools) return sendJson(res, 503, { ok: false, error: '注册表没挂上' })
-          const body = await readBody(req)
-          const id = String(body?.id ?? '').trim()
-          if (!id) return sendJson(res, 400, { ok: false, error: '缺少工具 id' })
-          const result = await tools.invoke(id, body?.args ?? {})
-          if (result?.ok) {
-            try {
-              if (/web|browser|search|fetch|bili|site|qq|post|publish|comment|dynamic|send|play/i.test(id)) {
-                const kind = /post|publish|comment|dynamic|send/i.test(id) ? 'post' : /play|game/i.test(id) ? 'play' : 'web'
-                recordActivity(kind, new Date(), loadSchedule())
-              }
-            } catch { /* 活动记不上不影响工具 */ }
-          }
-          sendJson(res, 200, result)
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/browser',
-        handler: handlerFor(async (req, res) => {
-          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
-          if (!browser) return sendJson(res, 200, { ok: true, available: false, error: '浏览器手没挂上' })
-          sendJson(res, 200, { ok: true, ...browser.status() })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/browser/stop',
-        handler: handlerFor(async (req, res) => {
-          if (!writeGate(req, res)) return
-          if (!browser) return sendJson(res, 503, { ok: false, error: '浏览器手没挂上' })
-          const result = await browser.close()
-          sendJson(res, 200, { ok: true, ...result, status: browser.status() })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/desktop',
-        handler: handlerFor(async (req, res) => {
-          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
-          if (!desktop) return sendJson(res, 200, { ok: true, available: false, error: '桌面手没挂上' })
-          sendJson(res, 200, { ok: true, ...desktop.status() })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/autonomy',
-        handler: handlerFor(async (req, res) => {
-          if (req.method !== 'GET') return sendJson(res, 405, { ok: false, error: 'GET only' })
-          if (!autonomy) return sendJson(res, 200, { ok: true, pending: null, recent: [] })
-          sendJson(res, 200, { ok: true, ...autonomy.status() })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/autonomy/resolve',
-        handler: handlerFor(async (req, res) => {
-          if (!writeGate(req, res)) return
-          if (!autonomy) return sendJson(res, 503, { ok: false, error: '自主解决没挂上' })
-          sendJson(res, 200, { ok: true, ...autonomy.resolve() })
-        }),
-      },
-      {
-        kind: 'exact',
-        path: '/api/dsh-Ycp/autonomy/run',
-        handler: handlerFor(async (req, res) => {
-          if (!writeGate(req, res)) return
-          if (!autonomy) return sendJson(res, 503, { ok: false, error: '自主解决没挂上' })
-          const body = await readBody(req)
-          const goal = String(body?.goal ?? '').trim()
-          if (!goal) return sendJson(res, 400, { ok: false, error: '缺少 goal' })
-          const result = await autonomy.solve(goal)
-          sendJson(res, 200, result)
         }),
       },
       {

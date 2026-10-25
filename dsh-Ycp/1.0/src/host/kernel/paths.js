@@ -45,21 +45,7 @@ export const DEFAULT_PERSONA = `# 我是谁
 不刷屏、不引战、不碰敏感话题；遇到验证码或被风控，立刻停手告诉主人，不绕过。
 `
 
-/** 她的默认权限：五条手全开；读全机、自己的家完全掌控（见 RULES.md）。 */
-export const DEFAULT_HANDS = {
-  browser: true,
-  /** 默认不限制浏览；想收紧就换成具体站点，留空则谁都打不开。 */
-  browserSites: ['*'],
-  desktop: true,
-  /** * = 允许启动任何程序。 */
-  desktopApps: ['*'],
-  script: true,
-  runCommand: true,
-  /** 登录后的动作：点赞/评论/发弹幕/填表。 */
-  actions: true,
-}
-
-/** 默认设置。只放真正用得到的字段，后面的阶段各加各的。 */
+/** 默认设置。0.2.0 起没有「手」和工具权限了——她只有记忆和嘴。 */
 export const DEFAULT_SETTINGS = {
   name: INSTANCE_NAME,
   enabled: true,
@@ -70,9 +56,7 @@ export const DEFAULT_SETTINGS = {
   historyChars: 16000,
   autoReflect: true,
   sayPerHour: 20,
-  hands: DEFAULT_HANDS,
   proactive: { enabled: false, everyMin: 60, dailyLimit: 10 },
-  permissions: { webSearch: true, webFetch: true, memoryWrite: true, memoryRead: true },
   appearance: { petEnabled: false },
   model: { baseUrl: '', apiKey: '', model: '' },
   signature: '',
@@ -347,9 +331,7 @@ export function loadSettings() {
     if (typeof value !== 'number' || !Number.isFinite(value)) continue
     out[key] = Math.min(range.hi, Math.max(range.lo, Math.round(value)))
   }
-  out.hands = normalizeHands(raw.hands)
   out.proactive = normalizeProactive(raw.proactive)
-  out.permissions = normalizePermissions(raw.permissions)
   out.appearance = normalizeAppearance(raw.appearance)
   out.voice = normalizeVoice(raw.voice)
   out.sound = normalizeSound(raw.sound)
@@ -426,16 +408,6 @@ export function normalizeAppearance(input) {
   return out
 }
 
-/** 工具权限：只认四个开关，坏值退回默认。 */
-export function normalizePermissions(input) {
-  const out = { ...DEFAULT_SETTINGS.permissions }
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return out
-  for (const key of Object.keys(out)) {
-    if (typeof input[key] === 'boolean') out[key] = input[key]
-  }
-  return out
-}
-
 /** 主动发言设置：只认三个字段，坏值退回默认。 */
 export function normalizeProactive(input) {
   const out = { ...DEFAULT_SETTINGS.proactive }
@@ -447,21 +419,6 @@ export function normalizeProactive(input) {
     out[key] = Math.min(range.hi, Math.max(range.lo, Math.round(value)))
   }
   return out
-}
-
-/** 手权限：只认白名单字段，坏值退回默认。 */
-export function normalizeHands(input) {
-  const hands = { ...DEFAULT_HANDS, browserSites: [], desktopApps: [] }
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return hands
-  for (const key of ['browser', 'desktop', 'script', 'runCommand', 'actions']) {
-    if (typeof input[key] === 'boolean') hands[key] = input[key]
-  }
-  for (const key of ['browserSites', 'desktopApps']) {
-    if (Array.isArray(input[key])) {
-      hands[key] = input[key].filter((item) => typeof item === 'string').map((item) => item.trim()).filter(Boolean)
-    }
-  }
-  return hands
 }
 
 /**
@@ -497,23 +454,6 @@ export function saveSettings(patch) {
     }
     next[key] = rounded
   }
-  if ('hands' in patch) {
-    const hands = patch.hands
-    if (!hands || typeof hands !== 'object' || Array.isArray(hands)) {
-      return { ok: false, error: 'hands 必须是对象' }
-    }
-    for (const key of ['browser', 'desktop', 'script', 'runCommand', 'actions']) {
-      if (key in hands && typeof hands[key] !== 'boolean') {
-        return { ok: false, error: `hands.${key} 必须是 true / false` }
-      }
-    }
-    for (const key of ['browserSites', 'desktopApps']) {
-      if (key in hands && (!Array.isArray(hands[key]) || hands[key].some((item) => typeof item !== 'string'))) {
-        return { ok: false, error: `hands.${key} 必须是字符串数组` }
-      }
-    }
-    next.hands = normalizeHands({ ...next.hands, ...hands })
-  }
   if ('proactive' in patch) {
     const source = patch.proactive
     if (!source || typeof source !== 'object' || Array.isArray(source)) {
@@ -539,17 +479,6 @@ export function saveSettings(patch) {
       }
     }
     next.proactive = normalizeProactive({ ...next.proactive, ...source })
-  }
-  if ('permissions' in patch) {
-    const source = patch.permissions
-    if (!source || typeof source !== 'object' || Array.isArray(source)) {
-      return { ok: false, error: 'permissions 必须是对象' }
-    }
-    for (const key of Object.keys(source)) {
-      if (!(key in DEFAULT_SETTINGS.permissions)) return { ok: false, error: `不认识的权限：${key}` }
-      if (typeof source[key] !== 'boolean') return { ok: false, error: `permissions.${key} 必须是 true / false` }
-    }
-    next.permissions = normalizePermissions({ ...next.permissions, ...source })
   }
   if ('appearance' in patch) {
     const source = patch.appearance

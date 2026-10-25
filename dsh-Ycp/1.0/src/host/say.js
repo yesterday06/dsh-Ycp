@@ -76,7 +76,8 @@ function toneLine(summary) {
 }
 
 /** 没有正文时，把终止块翻成人话。 */
-function noTextReason(finish) {  const { kind, failure } = finish ?? {}
+function noTextReason(finish) {
+  const { kind, failure } = finish ?? {}
   if (kind === 'aborted') return '等太久了，这次没说完'
   if (kind === 'max-tokens') return '话说满了，没吐出正文'
   if (kind !== 'error') return '模型没说话'
@@ -88,7 +89,6 @@ function noTextReason(finish) {  const { kind, failure } = finish ?? {}
 export function createSayService(ctx, options = {}) {
   const toolRegistry = options.tools || null
   const autoSelf = options.autoSelf || null
-  const desktop = options.desktop || null
   async function say(input, options = {}) {
     const now = options.now instanceof Date ? options.now : new Date()
     const text = String(input?.text ?? '').trim()
@@ -137,16 +137,6 @@ export function createSayService(ctx, options = {}) {
       moodLine = toneLine(moodSummary(loadMood(now, schedule)))
     } catch { /* 状态读不到就不带 */ }
 
-    // 感知：她开口前先知道主人现在在哪个窗口，不是瞎猜。
-    let scene = ''
-    try {
-      if (desktop && typeof desktop.info === 'function') {
-        const info = await desktop.info()
-        const foreground = String(info?.foreground ?? '').trim()
-        if (foreground) scene = '【眼前】系统刚读到的前台窗口标题是「' + foreground.slice(0, 80) + '」。这是真实窗口信息，不是猜的；被问“你能看到什么”时据此回答。'
-      }
-    } catch { /* 桌面手不可用就不带 */ }
-
     const memoryText = [
       recalled.core ? '【你一直记得的】\n' + recalled.core : '',
       recalled.recall ? '【你记得的】\n' + recalled.recall : '',
@@ -163,7 +153,6 @@ export function createSayService(ctx, options = {}) {
           : '',
         moodLine,
         memoryNudgeText(),
-        scene,
       ].filter(Boolean).join('\n\n'),
     })
     const started = Date.now()
@@ -214,10 +203,8 @@ export function createSayService(ctx, options = {}) {
         // 改成“文字指令”：模型只输出一行 <<TOOL 工具名 {...}>>，宿主执行后把结果当对话喂回去。
         const CATALOG_IDS = [
           'memory.card', 'memory.raw', 'memory.list', 'memory.forget', 'memory.consolidate',
-          'memory.reflect', 'memory.check', 'memory.merge', 'memory.recall',
+          'memory.reflect', 'memory.check', 'memory.merge', 'memory.recall', 'memory.remember',
           'diary.write', 'persona.grow', 'name.set', 'signature.set', 'schedule.set', 'proactive.set',
-          'qq.send', 'desktop.ui', 'desktop.clickText', 'desktop.setValue', 'desktop.window', 'desktop.launch', 'browser.login', 'browser.goto', 'browser.text', 'browser.click',
-          'bili.comment', 'bili.like', 'bili.dynamic', 'site.api',
         ]
         const catalog = toolRegistry && typeof toolRegistry.listTools === 'function'
           ? toolRegistry.listTools().filter((tool) => tool && tool.id && CATALOG_IDS.includes(tool.id))

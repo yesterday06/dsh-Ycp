@@ -61,17 +61,6 @@ export function recordEvent(state, now = Date.now()) {
 }
 
 /**
- * 手权限（P11–P13 用）：
- * 每只手有自己的开关，关着就直接拒，不认识的手也拒。
- */
-export function checkHand(hands, hand) {
-  const known = ['browser', 'desktop', 'script', 'runCommand', 'actions']
-  if (!known.includes(hand)) return { allow: false, reason: 'permission', error: `不认识的手：${String(hand)}` }
-  if (hands?.[hand] === true) return { allow: true }
-  return { allow: false, reason: 'permission', error: `「${hand}」这条手是关着的` }
-}
-
-/**
  * 说话前过闸。
  * @returns {{allow: boolean, reason?: string, error?: string, retryAfterSec?: number, sleepy?: boolean, status?: object, used?: number, limit?: number}}
  */
