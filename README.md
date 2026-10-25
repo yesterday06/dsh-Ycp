@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="dsh-Ycp/1.0/icon.svg" width="88" alt="dsh-Ycp">
+  <img src="dsh-Ycp/1.0/assets/character/character.png" width="240" alt="记忆智能">
 </p>
 
-<h1 align="center">dsh-Ycp · 阿闷</h1>
+<h1 align="center">记忆智能 · dsh-Ycp</h1>
 
 <p align="center">
-  <b>住在 DeepSeek Harness 里的桌宠个体</b><br>
-  记忆是本体，对话是平台——换个入口、清空聊天记录，她还是她。
+  <b>给 DeepSeek Harness 的记忆智能插件</b><br>
+  记忆是本体，对话是平台——换个入口、清空聊天记录，角色还是那个角色。
 </p>
 
 <p align="center">
@@ -18,13 +18,13 @@
 
 ---
 
-## 她是什么
+## 它是什么
 
-不是聊天皮肤，也不是一个「更聪明的助手」。她有自己的记忆库、状态、账本和作息：你关掉窗口、清空聊天记录、换一个 DSH 入口，她还是原来那个她。
+记忆智能给 DSH 里的角色一套自己的记忆：分层卡片、按需检索、每天反思、长窗口折叠；再加上状态、账本、人设和说话。角色名可以换（默认「阿闷」），记忆跟着角色走，不跟着某个会话走。
 
-**0.2.0 起动手能力整层移除**——不能上网、不能点屏幕、不能跑脚本、不能发帖。**0.2.2 先把权限打好**：禁足 / 普通 / 完整三档，默认禁足，只能由主人在面板里改，她自己没有升权限的入口。权限立住了，之后一次加一只手。被要求做这些时，她会直说「我现在还动不了手，只能记下来」，不假装完成。
+**0.2.0 起动手能力整层移除**——不能上网、不能点屏幕、不能跑脚本、不能发帖。**0.2.2 先把权限打好**：禁足 / 普通 / 完整三档，默认禁足，只能由主人在面板里改，角色自己没有任何升权限的入口。权限立住了，之后一次加一只手。
 
-## 她现在能做什么
+## 现在能做什么
 
 | 部分 | 内容 |
 |---|---|
@@ -48,7 +48,7 @@ cd dsh-Ycp\dsh-Ycp\1.0
 
 > 桌面 profile 不要用 `dsh plugin --profile desktop` 安装，必须 `pnpm add` + 改 bundles。
 
-她的家：`<数据根>/阿闷/`，数据根默认 `D:\OpenAI\dsh-Ycp`，可用 `DSH_YCP_HOME` 改；名字由 `人物名.txt` 决定。
+数据根用 `DSH_YCP_HOME` 指定（默认值见 `src/host/kernel/paths.js`）；角色名由 `人物名.txt` 决定。
 
 ## 仓库结构
 
@@ -73,22 +73,22 @@ dsh-Ycp/
 
 ## 和 dsh-brain 的关系
 
-两套**互不依赖**的记忆：
+两个项目**互不依赖**：
 
 - [dsh-brain](https://github.com/yesterday06/dsh-brain)：装给 DSH 本身的记忆大脑插件——四层卡片、按需检索注入、长会话自动接续、任务封存。
-- 本仓库：一个**有自己记忆库的个体**，记忆服务于「她是谁」，不服务于某个工作区。
+- 本仓库：一个有自己记忆库的角色，记忆服务于「她是谁」，不服务于某个工作区。
 
 可以同时装：一个管会话怎么接，一个管她记不记得你。
 
 ## 许可
 
-[MIT](dsh-Ycp/1.0/LICENSE)
+[MIT](LICENSE)
 
 ---
 
 <details>
 <summary>English</summary>
 
-**dsh-Ycp (Memory Intelligence)** is a desktop companion that lives inside DeepSeek Harness: its own layered memory store, state (stamina / mood / satiety), token ledger and persona. Since 0.2.0 the "hands" layer (browser, desktop, scripts, platform APIs) has been removed — she only remembers and talks. 0.2.2 starts building it back with a three-level permission switch (jail / normal / full) that only the owner can change. MIT licensed; Windows.
+**dsh-Ycp** is a memory-intelligence plugin for DeepSeek Harness. Every character gets its own layered memory store — on-demand recall, daily reflection, window folding — plus state, token ledger, persona, and a three-level permission switch (jail / normal / full) that only the owner can change. The character name is configurable. Since 0.2.0 the "hands" layer (browser, desktop, scripts, platform APIs) has been removed; 0.2.2 rebuilds the permission foundation before hands come back one at a time. MIT licensed; Windows.
 
 </details>
