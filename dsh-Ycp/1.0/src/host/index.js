@@ -74,6 +74,20 @@ export function apply(ctx) {
     getSettings: () => loadSettings(),
     log: (message, extra) => appendLog(message, extra),
   })
+  // 所有工具动作都进“原始记忆”：她做过什么，和聊天一样留痕，之后能回查、能提炼。
+  const invokeTool = registry.invoke.bind(registry)
+  registry.invoke = async (id, args = {}) => {
+    const result = await invokeTool(id, args)
+    try {
+      const brief = JSON.stringify(args).slice(0, 300)
+      appendRaw({
+        source: 'other',
+        text: `[动作] ${id} ${result?.ok ? '成功' : '失败'}${result?.error ? '：' + result.error : ''} ${brief}`,
+        meta: { tool: id },
+      })
+    } catch { /* 记不上不影响动作 */ }
+    return result
+  }
   installBuiltins(registry)
   registry.registerTool({
     id: 'memory.raw',
