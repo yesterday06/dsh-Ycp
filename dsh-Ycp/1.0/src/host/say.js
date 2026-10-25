@@ -15,6 +15,7 @@ import { commitSay, checkSay, loadRateState } from './organs/gate.js'
 import { loadSchedule } from './organs/schedule.js'
 import { recordSay, moodSummary } from './organs/mood.js'
 import { appendRaw, bumpMemoryNudge, memoryNudgeText, resetMemoryNudge } from './organs/memory.js'
+import { appendTurn, loadHistory } from './organs/chatlog.js'
 import { memoryBlock, search } from './organs/search.js'
 import { buildSystem } from './kernel/prompt.js'
 
@@ -93,7 +94,15 @@ export function createSayService(ctx, options = {}) {
     commitSay(rate, now)
 
     // 开口前先想起事：全局 + 归档按分数取 top-k，实时卡必读，日记不参与。
-    const recalled = search(text, { topK: settings.memoryTopK, maxChars: settings.memoryMaxChars })
+    // 检索词带上最近几轮用户的话，免得一句“那个呢”就接不上。
+    const history = loadHistory()
+    const recentUser = history
+      .filter((item) => item.role === 'user')
+      .slice(-3)
+      .map((item) => item.text)
+      .join('\n')
+    const query = recentUser ? recentUser + '\n' + text : text
+    const recalled = search(query, { topK: settings.memoryTopK, maxChars: settings.memoryMaxChars })
 
     const system = buildSystem({
       persona: loadPersona(),
@@ -123,6 +132,7 @@ export function createSayService(ctx, options = {}) {
             model: custom.model,
             messages: [
               { role: 'system', content: system },
+              ...history.map((item) => ({ role: item.role, content: item.text })),
               { role: 'user', content: text },
             ],
             temperature: 1,
@@ -162,7 +172,10 @@ export function createSayService(ctx, options = {}) {
                 return { name: apiName, description: String(tool.description || ''), parameters: tool.schema }
               })
           : []
-        const messages = [{ role: 'user', content: [{ type: 'text', text }] }]
+        const messages = [
+          ...history.map((item) => ({ role: item.role, content: [{ type: 'text', text: item.text }] })),
+          { role: 'user', content: [{ type: 'text', text }] },
+        ]
         let finalText = ''
         for (let round = 0; round < 4; round += 1) {
           const calls = new Map()
@@ -235,6 +248,7 @@ export function createSayService(ctx, options = {}) {
     const ms = Date.now() - started
     try {
       appendRaw({ source: 'chat', text: '主人：' + text + '\n我：' + reply, meta: { model: usedModel, ms } })
+      appendTurn(text, reply)
       bumpMemoryNudge()
     } catch { /* 原始记忆记不上不影响说话 */ }
     const recalledList = [...recalled.hits, ...recalled.realtime].map((item) => ({
